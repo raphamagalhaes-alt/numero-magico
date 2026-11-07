@@ -1,0 +1,61 @@
+/**
+ * Contrato dos dados de mercado. Cada campo carrega sua própria fonte e data —
+ * a aplicação nunca exibe um valor sem procedência.
+ */
+export interface SourcedValue<T> {
+  value: T;
+  source: string;
+  sourceUrl?: string;
+}
+
+export interface LastTrade {
+  price: string; // decimal em string, precisão da origem
+  tradedAt: string; // ISO 8601 do negócio/fechamento
+  source: string;
+  sourceUrl?: string;
+}
+
+export interface DividendEvent {
+  /** R$ por cota, string decimal (pode ter 3+ casas). */
+  amountPerShare: string;
+  /** Data-com (último dia com direito). */
+  recordDate: string;
+  paymentDate: string;
+  /** Data do anúncio/aviso aos cotistas, se conhecida. */
+  announcedAt?: string;
+  source: string;
+  sourceUrl?: string;
+}
+
+export interface MarketSnapshot {
+  ticker: string;
+  provider: string;
+  lastTrade: LastTrade | null;
+  /** Último rendimento efetivamente pago. */
+  lastPaidDividend: DividendEvent | null;
+  /** Último rendimento anunciado e ainda não pago. */
+  lastAnnouncedDividend: DividendEvent | null;
+  /** Horário da última consulta bem-sucedida ao provedor. */
+  fetchedAt: string;
+}
+
+export interface MarketStatus {
+  ticker: string;
+  snapshot: MarketSnapshot | null;
+  /** Última tentativa (bem ou malsucedida). */
+  lastAttemptAt: string | null;
+  lastError: string | null;
+  /** true quando a última consulta bem-sucedida é anterior ao último pregão esperado. */
+  stale: boolean;
+  providerConfigured: boolean;
+  providerName: string;
+  automaticUpdates: boolean;
+  nextScheduledRun: string | null;
+}
+
+/** Dividendo a usar por padrão no modo de mercado: o último anunciado; se não houver, o último pago. */
+export function defaultDividend(s: MarketSnapshot): { event: DividendEvent; kind: 'anunciado' | 'pago' } | null {
+  if (s.lastAnnouncedDividend) return { event: s.lastAnnouncedDividend, kind: 'anunciado' };
+  if (s.lastPaidDividend) return { event: s.lastPaidDividend, kind: 'pago' };
+  return null;
+}

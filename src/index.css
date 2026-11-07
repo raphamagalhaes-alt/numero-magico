@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: radial-gradient(1200px 600px at 10% -10%, #1a1712 0%, transparent 60%), #0b0c0e;
+  min-height: 100vh;
+  font-feature-settings: 'tnum' 1, 'cv11' 1;
+}
+.num { font-variant-numeric: tabular-nums; }
+
+@layer components {
+  .card { @apply rounded-xl bg-ink-900/80 ring-1 ring-white/[0.06] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]; }
+  .label { @apply text-[11px] font-medium uppercase tracking-[0.12em] text-mist-400; }
+  .input {
+    @apply w-full rounded-lg bg-ink-850 px-3 py-2 text-sm text-mist-100 ring-1 ring-white/10 outline-none transition
+      placeholder:text-mist-500 focus:ring-2 focus:ring-gold-500/70;
+  }
+  .input-error { @apply ring-loss-500/70 focus:ring-loss-500; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition
+      ring-1 ring-white/10 bg-ink-800 text-mist-200 hover:bg-ink-700 hover:text-mist-100
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-gold { @apply bg-gold-500 text-ink-950 ring-gold-400 hover:bg-gold-400 hover:text-ink-950; }
+  .seg { @apply inline-flex rounded-lg bg-ink-850 p-1 ring-1 ring-white/10; }
+  .seg > button {
+    @apply rounded-md px-3 py-1.5 text-xs font-medium text-mist-300 transition hover:text-mist-100
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500;
+  }
+  .seg > button[aria-pressed='true'], .seg > button[aria-selected='true'] { @apply bg-ink-700 text-gold-300 shadow; }
+}
+
+.print-only { display: none; }
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body { background: #fff !important; color: #111 !important; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .card { background: #fff !important; box-shadow: none !important; border: 1px solid #ddd; }
+  * { color: #111 !important; }
+}

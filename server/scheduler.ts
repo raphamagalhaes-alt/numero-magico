@@ -1,0 +1,30 @@
+import cron from 'node-cron';
+import { TZ, isTradingDay, saoPauloDate } from './calendar';
+
+export const DAILY_CRON = '0 9 * * *';
+
+/** Próxima execução às 9h de São Paulo (Brasil sem horário de verão desde 2019: UTC−3). */
+export function nextNineAm(now: Date): string {
+  const today = saoPauloDate(now);
+  const [y, m, d] = today.split('-').map(Number);
+  let candidate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0)); // 09:00 −03:00
+  if (candidate <= now) candidate = new Date(candidate.getTime() + 86400000);
+  return candidate.toISOString();
+}
+
+/** Decide se a rotina diária deve consultar o provedor neste dia. */
+export function shouldRunOn(now: Date): { run: boolean; reason: string } {
+  const day = saoPauloDate(now);
+  if (!isTradingDay(day)) return { run: false, reason: `${day} não é dia de pregão (fim de semana ou feriado); cotação permanece a do último pregão.` };
+  return { run: true, reason: 'dia de pregão' };
+}
+
+export function startDailyScheduler(job: () => Promise<void>, log: (m: string) => void = console.log) {
+  const task = cron.schedule(DAILY_CRON, async () => {
+    const d = shouldRunOn(new Date());
+    if (!d.run) return log(`[agendador] ${d.reason}`);
+    log('[agendador] atualização diária iniciada');
+    await job();
+  }, { timezone: TZ });
+  return task;
+}

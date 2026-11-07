@@ -1,0 +1,20 @@
+{
+  "_instrucoes": "Copie para market-manual.json e preencha SOMENTE com valores conferidos em fontes oficiais (aviso de rendimentos no Fundos.NET / B3, relatório do gestor). Valores em string com ponto decimal. Os campos abaixo são ESTRUTURA, não dados reais.",
+  "MXRF11": {
+    "lastTrade": {
+      "price": "0.00",
+      "tradedAt": "AAAA-MM-DDT18:00:00-03:00",
+      "source": "Nome da fonte licenciada da cotação",
+      "sourceUrl": "https://..."
+    },
+    "lastPaidDividend": {
+      "amountPerShare": "0.000",
+      "recordDate": "AAAA-MM-DD",
+      "paymentDate": "AAAA-MM-DD",
+      "announcedAt": "AAAA-MM-DD",
+      "source": "Aviso aos cotistas — Fundos.NET",
+      "sourceUrl": "https://fnet.bmfbovespa.com.br/..."
+    },
+    "lastAnnouncedDividend": null
+  }
+}
