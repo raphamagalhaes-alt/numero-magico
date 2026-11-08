@@ -78,6 +78,15 @@ test('site: chave brapi pessoal busca histórico e fechamento dos ativos acompan
   await page.goto('./#/explorar');
   await page.getByRole('button', { name: /^Todos/ }).click();
   await expect(page.locator('[data-testid=exp-table] tbody tr[data-ticker=PETR4]')).toContainText('R$ 40,50');
+  // Aporte do mês: 10 cotas a R$ 40,50 + R$ 500 → compra 12 cotas inteiras (R$ 486,00), sobra R$ 14,00
+  await page.goto('./#/carteira');
+  await expect(page.locator('[data-testid=pf-contrib] tr[data-ticker=PETR4]')).toContainText('12 cotas');
+  await expect(page.getByTestId('ap-summary')).toContainText('R$ 486,00');
+  await expect(page.getByTestId('ap-summary')).toContainText('R$ 14,00');
+  // Liberdade usa a renda e o patrimônio da carteira
+  await page.goto('./#/liberdade');
+  await expect(page.getByTestId('fr-index')).toBeVisible();
+  await expect(page.getByText('patrimônio R$ 405,00')).toBeVisible();
   expect(ext.filter((h) => B3.test(h))).toEqual([]);
   expect(ext.every((h) => h === 'brapi.dev')).toBe(true); // só a sua chave brapi; nada mais sai do aparelho
 });
@@ -113,4 +122,27 @@ test('site: Mercados mostra principais ações do Brasil e do mundo, com alta/qu
   expect(auth.every((a) => a === 'Bearer minha-chave-pessoal-123')).toBe(true);
   expect(ext.filter((h) => B3.test(h))).toEqual([]);
   expect(ext.every((h) => h === 'brapi.dev')).toBe(true);
+});
+
+test('site: Liberdade mostra quais contas a renda já paga, a próxima e a linha do tempo', async ({ page }) => {
+  await page.goto('./#/liberdade');
+  await expect(page.getByTestId('fr-index')).toContainText('0%');
+  await page.getByTestId('fr-extra-income').fill('400');
+  await page.getByTestId('fr-rate').fill('6');
+  // contas padrão em ordem crescente: Celular 60, Água 90, Internet 120, Luz 200…
+  await expect(page.getByTestId('fr-covered')).toContainText('Celular, Água, Internet');
+  await expect(page.getByTestId('fr-next')).toContainText('Luz');
+  await expect(page.getByTestId('fr-next')).toContainText('R$ 70,00');
+  await expect(page.getByTestId('fr-next')).toContainText('R$ 14.000,00'); // 70 × 12 ÷ 6%
+  await expect(page.getByTestId('fr-plan')).toContainText('R$ 774.000,00'); // (4.270 − 400 de outras rendas) × 12 ÷ 6%
+  await expect(page.getByTestId('fr-timeline').locator('li').first()).toContainText('já paga');
+  await expect(page.getByTestId('fr-when')).toContainText('anos');
+  // outros investimentos (R$ 15 mil a 6% = R$ 75/mês) passam a pagar a Luz — índice e linha do tempo concordam
+  await page.getByTestId('fr-extra-capital').fill('15000');
+  await expect(page.getByTestId('fr-covered')).toContainText('Internet, Luz');
+  await expect(page.getByTestId('fr-timeline').locator('li').nth(3)).toContainText('já paga');
+  await expect(page.getByTestId('fr-timeline').locator('li').nth(4)).not.toContainText('já paga');
+  // persiste no aparelho
+  await page.reload();
+  await expect(page.getByTestId('fr-extra-income')).toHaveValue('400');
 });

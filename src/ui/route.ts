@@ -1,9 +1,10 @@
 /** Roteamento por hash (#/explorar?t=...), sem dependências e compatível com hospedagem estática. */
 import { useEffect, useState } from 'react';
 
-export type Page = 'simulador' | 'mercados' | 'explorar' | 'comparar' | 'juros' | 'carteira' | 'dados' | 'termos';
+export type Page = 'simulador' | 'mercados' | 'liberdade' | 'explorar' | 'comparar' | 'juros' | 'carteira' | 'dados' | 'termos';
 export const PAGES: { id: Page; label: string }[] = [
   { id: 'mercados', label: 'Mercados' },
+  { id: 'liberdade', label: 'Liberdade' },
   { id: 'simulador', label: 'Simular' },
   { id: 'explorar', label: 'Tabela B3' },
   { id: 'comparar', label: 'Comparar' },

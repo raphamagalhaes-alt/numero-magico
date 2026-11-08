@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, Calculator, Plus, Trash2, Wallet } from 'lucide-react';
+import { Bell, Calculator, PiggyBank, Plus, Trash2, Wallet } from 'lucide-react';
 import { magicNumber } from '../../engine';
+import { planContribution } from '../../engine/freedom';
 import type { AssetMetrics } from '../../market/universe';
 import { useUniverse } from '../data';
 import { fmtBRL, fmtDecimal, fmtInt, fmtPct } from '../format';
@@ -32,6 +33,71 @@ export function markDividendsSeen(assets: AssetMetrics[], positions: Position[])
   const seen = loadRaw<Record<string, string>>(SEEN_KEY, {});
   for (const p of positions) { const d = assets.find((x) => x.ticker === p.ticker)?.lastDividend; if (d) seen[p.ticker] = d.recordDate; }
   save(SEEN_KEY, seen);
+}
+
+/** Renda mensal estimada por cota: FII = último rendimento; ação = média mensal dos proventos de 12 meses. */
+export function monthlyIncomePerShare(a: AssetMetrics | undefined): number {
+  if (!a) return 0;
+  return a.cls === 'ACAO' ? (a.dy12m ? Math.trunc((a.dy12m * a.close / 12) * 1e6) / 1e6 : 0) : a.lastDividend?.amount ?? 0;
+}
+/** Valor e renda mensal estimada da carteira inteira (usado também na página Liberdade). */
+export function portfolioTotals(positions: Position[], assets: AssetMetrics[]) {
+  let value = 0, income = 0;
+  for (const p of positions) {
+    const a = assets.find((x) => x.ticker === p.ticker);
+    if (!a) continue;
+    value += a.close * p.shares;
+    income += Math.round(monthlyIncomePerShare(a) * p.shares * 100) / 100;
+  }
+  return { value: Math.round(value * 100) / 100, income: Math.round(income * 100) / 100 };
+}
+
+const TARGET_KEY = 'mxrf:targets';
+
+/** Aporte do mês: quantas cotas inteiras comprar de cada ativo para chegar perto da divisão que a pessoa escolheu. */
+function MonthlyContribution({ positions, assets }: { positions: Position[]; assets: AssetMetrics[] }) {
+  const [cash, setCash] = useState('500');
+  const [targets, setTargets] = useState<Record<string, string>>(() => loadRaw<Record<string, string>>(TARGET_KEY, {}));
+  useEffect(() => save(TARGET_KEY, targets), [targets]);
+  const rows = positions.map((p) => ({ p, a: assets.find((x) => x.ticker === p.ticker) })).filter((r) => r.a && r.a.close > 0);
+  const num = (s: string | undefined) => { const n = Number(String(s ?? '').replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : 0; };
+  const holdings = rows.map(({ p, a }) => ({ ticker: p.ticker, shares: p.shares, price: a!.close, target: num(targets[p.ticker] ?? '1') }));
+  const money = num(cash);
+  const plan = planContribution(holdings, money);
+  const tsum = holdings.reduce((s, h) => s + h.target, 0);
+  if (!rows.length) return null;
+  return (
+    <section className="card flex flex-col gap-3 p-4" aria-labelledby="ap-title" data-testid="pf-contrib">
+      <div>
+        <h2 id="ap-title" className="flex items-center gap-2 text-base font-semibold"><PiggyBank size={16} className="text-gold-400" aria-hidden />Aporte do mês</h2>
+        <p className="text-xs text-mist-400">Diga quanto vai investir e a divisão que <b>você</b> quer (pesos). Calculamos quantas cotas inteiras comprar de cada um para chegar mais perto dessa divisão, sem vender nada.</p>
+      </div>
+      <label className="flex max-w-xs flex-col gap-1 text-xs text-mist-400">Quanto vou investir agora (R$)<input className="input num" inputMode="decimal" value={cash} onChange={(e) => setCash(e.target.value)} data-testid="ap-cash" /></label>
+      <div className="overflow-x-auto">
+        <table className="num w-full text-xs">
+          <thead><tr className="text-mist-400">{['Ativo', 'Peso que eu quero', 'Hoje', 'Alvo', 'Comprar', 'Custo', 'Depois'].map((h, i) => <th key={h} scope="col" className={`px-2 py-1.5 font-medium ${i ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead>
+          <tbody>{holdings.map((h) => {
+            const buy = plan.buys.find((b) => b.ticker === h.ticker);
+            const aft = plan.after.find((x) => x.ticker === h.ticker)!;
+            const totalNow = holdings.reduce((s, x) => s + x.shares * x.price, 0);
+            return (
+              <tr key={h.ticker} className="border-t border-white/5" data-ticker={h.ticker}>
+                <th scope="row" className="px-2 py-1.5 text-left font-medium">{h.ticker}</th>
+                <td className="px-2 py-1.5 text-right"><input className="input num w-16 !py-1 text-right" inputMode="decimal" aria-label={`Peso de ${h.ticker}`} value={targets[h.ticker] ?? '1'} onChange={(e) => setTargets((t) => ({ ...t, [h.ticker]: e.target.value }))} /></td>
+                <td className="px-2 py-1.5 text-right">{totalNow ? fmtPct(h.shares * h.price / totalNow, 0) : '—'}</td>
+                <td className="px-2 py-1.5 text-right">{tsum ? fmtPct(h.target / tsum, 0) : '—'}</td>
+                <td className="px-2 py-1.5 text-right font-semibold text-gold-300">{buy ? `${fmtInt(buy.shares)} cota${buy.shares > 1 ? 's' : ''}` : '—'}</td>
+                <td className="px-2 py-1.5 text-right">{buy ? fmtBRL(buy.cost.toFixed(2)) : '—'}</td>
+                <td className="px-2 py-1.5 text-right">{fmtPct(aft.weight, 0)}</td>
+              </tr>
+            );
+          })}</tbody>
+        </table>
+      </div>
+      <p className="text-xs text-mist-300" data-testid="ap-summary">{plan.buys.length ? <>Total a comprar: <b>{fmtBRL(plan.spent.toFixed(2))}</b> · sobra {fmtBRL(plan.leftover.toFixed(2))} (fica para o próximo mês).</> : 'Com esse valor não dá para comprar uma cota inteira que aproxime da divisão escolhida.'}</p>
+      <p className="text-[11px] text-mist-500">A divisão é escolha sua; o cálculo só faz a conta. Preços do último fechamento disponível — confira na corretora antes de comprar. Não é recomendação.</p>
+    </section>
+  );
 }
 
 export function PortfolioPage() {
@@ -95,8 +161,7 @@ export function PortfolioPage() {
             <tbody>{positions.map((p) => {
               const a = assets.find((x) => x.ticker === p.ticker);
               const value = a ? a.close * p.shares : 0;
-              // FII: último rendimento (mensal). Ação: média mensal dos proventos dos últimos 12 meses.
-              const div = a?.cls === 'ACAO' ? (a.dy12m ? Math.trunc((a.dy12m * a.close / 12) * 1e6) / 1e6 : 0) : a?.lastDividend?.amount ?? 0;
+              const div = monthlyIncomePerShare(a);
               const income = Math.round(div * p.shares * 100) / 100;
               totalValue += value; totalIncome += income;
               const m = a && div > 0 ? magicNumber(String(a.close), String(div), k) : null;
@@ -127,6 +192,7 @@ export function PortfolioPage() {
           </table>
         </div>
       )}
+      <MonthlyContribution positions={positions} assets={assets} />
       <AlertChannels tickers={positions.map((p) => p.ticker)} />
       <p className="text-[11px] text-mist-500">Renda estimada: FIIs com o último rendimento (Fundos.NET); ações com a média mensal de dividendos + JCP brutos dos últimos 12 meses (B3 — Empresas Listadas). Proventos futuros podem ser diferentes. ETFs/BDRs aparecem só com valor.</p>
     </section>
