@@ -7,7 +7,7 @@ export default tseslint.config(
   { ignores: ['dist', 'node_modules', 'test-results', 'playwright-report', 'release', 'build', 'release-desktop', 'dist-web'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  { files: ['public/sw.js'], languageOptions: { globals: { ...globals.serviceworker } } },
+  { files: ['public/sw.js', 'public/sw-site.js'], languageOptions: { globals: { ...globals.serviceworker } } },
   { files: ['electron/**/*.cjs'], languageOptions: { sourceType: 'commonjs', globals: { ...globals.node } }, rules: { '@typescript-eslint/no-require-imports': 'off' } },
   {
     files: ['**/*.{ts,tsx}'],

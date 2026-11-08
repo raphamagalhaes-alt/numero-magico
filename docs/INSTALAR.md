@@ -11,6 +11,43 @@ Guia para você e sua família. Há duas formas de usar, e as duas são regulare
 | Dividendos de ações | Não disponíveis | Sim, com data-com e pagamento |
 | Alertas (calendário, push, Telegram) | Não | Sim |
 
+## ⭐ Instalar como app, sem dar acesso ao seu computador (recomendado)
+
+O site pode ser instalado como aplicativo, com ícone e janela própria, e funciona até sem internet. Ele continua rodando **dentro da proteção do navegador**.
+
+| O app instalado pelo navegador… | |
+|---|---|
+| Lê seus arquivos, pastas, fotos ou documentos? | **Não.** Só o arquivo que você escolher na hora de enviar, por exemplo o da B3. |
+| Instala programas ou altera o sistema? | **Não.** |
+| Onde guarda seus dados (chave brapi, carteira, cotações)? | Num espaço do próprio app no navegador, separado de tudo. |
+| Envia seus dados para algum servidor? | **Não.** A única conexão externa é com a brapi, usando a sua chave. |
+| Como remover? | Como qualquer app. No Chrome/Edge: abra o app → menu ⋮ → *Desinstalar*. |
+
+### Computador (Windows ou Mac) com Chrome ou Edge
+
+1. Abra o endereço do site.
+2. Clique no botão **Instalar app**, no topo do site, ou no ícone de instalar na barra de endereço.
+3. Confirme. O ícone aparece no menu Iniciar (Windows) ou na pasta Aplicativos e no Launchpad (Mac).
+
+### Android (Chrome)
+
+1. Abra o endereço do site.
+2. Toque em **Instalar app**, ou no menu ⋮ → *Instalar app* / *Adicionar à tela inicial*.
+
+### iPhone e iPad (Safari)
+
+1. Abra o endereço do site **no Safari**.
+2. Toque em **Compartilhar** (o quadrado com a seta para cima) → **Adicionar à Tela de Início**.
+
+### Comparação com o app do computador (Electron)
+
+O app do computador baixado como zip tem **mais acesso**: ele roda com as permissões do seu usuário e observa a pasta Downloads para importar a cotação da B3 sozinho. Em troca, oferece:
+- rendimentos de FII **exatos**;
+- dividendos de ações;
+- alertas de calendário, push e Telegram.
+
+Se você prefere que nada tenha acesso ao seu computador, use só o site instalado.
+
 ## 0. Usar pelo site (recomendado para o dia a dia)
 
 1. Abra o endereço do site (veja a seção "Publicar o site" no fim).

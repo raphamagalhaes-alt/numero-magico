@@ -14,6 +14,7 @@ import { PAGES, go, useRoute } from './route';
 import { useUniverse } from './data';
 import { loadRaw } from './storage';
 import { IS_WEB } from './mode';
+import { InstallApp } from './components/InstallApp';
 
 export function Shell() {
   const route = useRoute();
@@ -45,6 +46,7 @@ export function Shell() {
             <span className="block text-[11px] text-mist-500">Simulador e explorador de investimentos · dados oficiais{IS_WEB ? ' · versão site' : ''}</span>
           </span>
         </a>
+        {IS_WEB && <InstallApp />}
         <nav aria-label="Páginas" className="-mx-1 flex max-w-full gap-1 overflow-x-auto text-xs">
           {PAGES.map((p) => (
             <a key={p.id} href={`#/${p.id}`} aria-current={route.page === p.id ? 'page' : undefined}

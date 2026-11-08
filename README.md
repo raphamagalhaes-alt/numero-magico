@@ -37,6 +37,11 @@ O MXRF11 continua como exemplo didático padrão (modo Demonstração).
 
 **Testes:** `npm run test:web` cobre desktop e celular, e verifica que **nenhuma requisição vai à B3** e que o único destino externo é a brapi, com a chave do usuário.
 
+**Instalável (PWA) e isolado:**
+- manifesto e `sw-site.js`, que guarda em cache só arquivos do próprio site e nunca chamadas externas;
+- botão "Instalar app" e instruções para iOS;
+- `test:web` confirma pelo Chrome que não há erros de instalabilidade (`Page.getInstallabilityErrors`) e que o app abre offline.
+
 **Publicação:** o workflow `site.yml` publica no GitHub Pages e reconstrói os dados abertos às 10h17 e às 22h47 (Brasília). Há `robots.txt` para o site não ser indexado.
 
 ## App desktop (Windows, Mac, Linux) e celular
@@ -76,7 +81,7 @@ npm run dev          # frontend (http://localhost:5173) + API de dados (http://l
 | `npm run check:live` | Consulta ao vivo B3 + Fundos.NET para todos os ativos |
 | `npm run data:update` | Rodada completa da central de dados (cotações, CVM, rendimentos, BCB, Tesouro, juros globais) |
 | `npm start` | Build + servidor único (frontend + API + agendador) |
-| `npm run test:web` | 6 testes do modo site (desktop e celular) |
+| `npm run test:web` | 8 testes do modo site (desktop e celular; instalabilidade e offline) |
 | `npm run build:web` | Gera o site estático com os dados abertos do dia |
 | `npm run test:e2e` | 33 testes de interface (Playwright) em desktop, tablet e celular |
 | `npm run typecheck` | Checagem de tipos do frontend e do servidor |
