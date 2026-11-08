@@ -17,7 +17,8 @@
     "check:live": "tsx scripts/check-live.ts",
     "start": "npm run build && tsx server/index.ts",
     "lint": "eslint .",
-    "ci": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e"
+    "ci": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e",
+    "data:update": "tsx scripts/update-data.ts"
   },
   "dependencies": {
     "decimal.js": "10.6.0",

@@ -12,7 +12,7 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${WEB_PORT}`, trace: 'off' },
   webServer: [
     {
-      command: 'npx tsx server/index.ts',
+      command: 'npx tsx scripts/seed-e2e.ts test-results/cache-e2e && npx tsx server/index.ts',
       url: `http://localhost:${API_PORT}/api/health`,
       reuseExistingServer: !process.env.CI,
       env: {
@@ -24,6 +24,7 @@ export default defineConfig({
         STATIC_DIR: 'test-results/no-static',
         REFRESH_COOLDOWN_MS: '0',
         DISABLE_SCHEDULER: '1',
+        DATA_DIR: 'test-results/cache-e2e',
       },
     },
     {

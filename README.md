@@ -1,8 +1,23 @@
-# MXRF11 · O Número Mágico — Financial Intelligence Simulator 2.0
+# Número Mágico — Simulador e Explorador de Investimentos
 
 Simulador web educativo, em português do Brasil, que mostra como o reinvestimento de dividendos aumenta aos poucos a quantidade de cotas de um fundo imobiliário. O ponto de partida é o **número mágico**: quantas cotas são necessárias para que um mês de rendimento compre novas cotas.
 
 > Simulação educativa. Fundos imobiliários são investimentos de renda variável. Preços, distribuições de rendimentos, inflação, liquidez e condições tributárias podem mudar. Resultados projetados não representam garantia de rentabilidade ou renda futura. Não constitui recomendação de investimento.
+
+## O que é
+
+Plataforma educativa com **dados oficiais atualizados diariamente**. Tem seis páginas:
+
+| Página | O que faz |
+|---|---|
+| **Simulador** | Número mágico e 360 meses de reinvestimento para qualquer FII ou Fiagro. Inclui comparação com renda fixa, testes de estresse, faixas Monte Carlo, estratégias, Laboratório de Cenários, cenários salvos e relatório com marca própria. |
+| **Explorar ativos** | Ações, FIIs, ETFs, BDRs, Fiagros e outros fundos negociados na B3, com filtros objetivos. FIIs e Fiagros mostram DY de 12 meses, último rendimento e P/VP; todos os ativos mostram liquidez, volatilidade, variação e queda máxima. **Sem ranking de "melhor ativo" e sem recomendação.** |
+| **Comparar** | Até 4 ativos lado a lado, com gráfico de preço em base 100. |
+| **Juros e renda fixa** | Selic, CDI, IPCA, IGP-M, dólar e euro (Banco Central); preços e taxas do Tesouro Direto; juros básicos de cerca de 20 bancos centrais (BIS, Fed NY, BCE). |
+| **Minha carteira** | Cotas que você tem, progresso até o número mágico de cada fundo e alerta quando sai um novo aviso de rendimento (no app e por notificação do navegador). |
+| **Status dos dados** | Data de referência, última consulta e erros de cada fonte oficial. |
+
+O MXRF11 continua como exemplo didático padrão (modo Demonstração).
 
 ## Instalação e execução
 
@@ -18,10 +33,11 @@ npm run dev          # frontend (http://localhost:5173) + API de dados (http://l
 | `npm run dev` | Vite + servidor de dados com recarga automática |
 | `npm run dev:web` | Apenas o frontend (o modo de mercado mostrará "serviço indisponível") |
 | `npm run server` | Apenas a API de dados + agendador |
-| `npm test` | 82 testes unitários (Vitest): motor, premissas avançadas, calendário, provedor oficial, exportação |
+| `npm test` | 103 testes unitários (Vitest): motor, premissas avançadas, calendário, provedor oficial, exportação |
 | `npm run check:live` | Consulta ao vivo B3 + Fundos.NET para todos os ativos |
+| `npm run data:update` | Rodada completa da central de dados (cotações, CVM, rendimentos, BCB, Tesouro, juros globais) |
 | `npm start` | Build + servidor único (frontend + API + agendador) |
-| `npm run test:e2e` | 18 testes de interface (Playwright) em desktop, tablet e celular |
+| `npm run test:e2e` | 30 testes de interface (Playwright) em desktop, tablet e celular |
 | `npm run typecheck` | Checagem de tipos do frontend e do servidor |
 | `npm run lint` | ESLint (inclui `react-hooks/exhaustive-deps`) |
 | `npm run ci` | Typecheck + lint + testes + build + E2E (o mesmo do GitHub Actions) |
@@ -76,7 +92,39 @@ e2e/             Testes Playwright
 - Estratégias com retirada: a parcela reinvestida é arredondada em centavos e o restante conta como dinheiro retirado. O retirado fica fora do patrimônio investido, então não há dupla contagem.
 - Cenários: as variações anuais de preço e dividendo entram a cada 12 meses. O preço é arredondado em centavos. O dividendo derivado é **truncado** em 6 casas, para nunca criar provento artificial.
 
-## Dados de mercado — fontes oficiais, sem chave
+## Central de dados — todas as fontes oficiais
+
+O servidor (`server/hub.ts`) atualiza **todos os dias às 9h e às 21h30 (America/Sao_Paulo)**. A rodada das 21h30 pega o fechamento do dia, que a B3 publica por volta das 20h30. Os dados são consumidos de fontes públicas, com código próprio; nada é copiado de corretoras ou de terceiros.
+
+| Conjunto | Fonte oficial | Frequência | Cobertura |
+|---|---|---|---|
+| Cotações, volume, variação, volatilidade | B3 — COTAHIST mensal (carga inicial de 13 meses) e diário | Diária | Ações, FIIs, Fiagros, ETFs, BDRs e fundos listados (~1.600 ativos) |
+| Rendimentos de FII/Fiagro (data-com, pagamento, isenção) | Fundos.NET — avisos estruturados de **todos** os fundos, por período de entrega | Diária (incremental) | Retroativo padrão de 400 dias, retomável |
+| CNPJ, VP/cota, cotistas, segmento | CVM Dados Abertos — informe mensal de FII | Diária (a CVM publica mensalmente) | Todos os FIIs com ISIN |
+| Selic, CDI, IPCA, IGP-M, PTAX | Banco Central — SGS (consulta por período até hoje) | Diária | Séries 432, 4389, 433, 13522, 189, 1, 21619 |
+| Tesouro Direto | Tesouro Transparente — preços e taxas | Diária | Todos os títulos ofertados |
+| Juros de bancos centrais | BIS (WS_CBPOL), Fed NY (EFFR), BCE (DFR) | Diária | ~20 países e regiões |
+
+**Comportamento da central:**
+- **Falhas:** cada fonte tem estado próprio. Em caso de falha, os últimos dados válidos são mantidos; os erros aparecem em *Status dos dados*.
+- **Concorrência:** execuções simultâneas são unificadas.
+- **Persistência:** os dados ficam em `DATA_DIR` (padrão `server/data/cache/`).
+
+**Operação:**
+- `npm run data:update` faz uma rodada completa manualmente; também serve para um cron externo.
+- `HISTORY_MONTHS` controla a carga inicial de cotações (padrão 13).
+- `DIVIDEND_BACKFILL_DAYS` controla o retroativo de rendimentos (padrão 400). A carga retroativa faz cerca de 7 mil downloads com pausa entre requisições, para ser gentil com a fonte, e salva o progresso a cada semana: se cair, retoma de onde parou.
+
+**Regras de honestidade dos indicadores:**
+- **DY de 12 meses:** só é exibido quando a central já tem 12 meses contínuos de avisos carregados. Antes disso aparece "—", com aviso.
+- **Cobertura de rendimentos:** só avança quando o intervalo fica contínuo; um retroativo interrompido não conta.
+- **P/VP:** valores fora de 0,2–5 são marcados como `n/d*`. Isso indica valor patrimonial da CVM incompatível com a cota negociada, por exemplo desdobramento recente.
+- **Status visível:** falhas parciais (como o download do Tesouro) aparecem em *Status dos dados*, nunca escondidas atrás de um "ok".
+- **Particularidade do Banco Central:** o SGS devolve 304 sem conteúdo para algumas janelas de datas, e a série da meta Selic publica datas futuras. O app consulta por período até hoje e repete a consulta com a janela deslocada.
+
+**Limitação honesta:** proventos de **ações** não são publicados em formato estruturado gratuito pelas fontes oficiais usadas. Por isso o DY aparece só para FIIs e Fiagros. O simulador também funciona para ações informando o dividendo manualmente.
+
+## Dados de mercado do simulador — fontes oficiais, sem chave
 
 O servidor busca dados **automaticamente em fontes oficiais e públicas**, sem cadastro nem token:
 
@@ -127,9 +175,30 @@ Também existe entrada manual direto no navegador ("Inserir manualmente").
 
 ## Ativos
 
-O seletor no topo oferece **MXRF11, HGLG11, KNRI11, KNCR11 e VISC11**. O CNPJ e o ISIN de cada um foram conferidos na base da CVM e no COTAHIST, e o código foi conferido nos avisos do Fundos.NET. O modo Demonstração (valores do vídeo) existe só para o MXRF11; os demais usam dados de mercado.
+O simulador aceita **qualquer FII ou Fiagro** cujo ISIN esteja no informe da CVM, via Explorar → Simular ou pelo seletor. Os ativos com cadastro verificado manualmente são MXRF11, HGLG11, KNRI11, KNCR11 e VISC11. O CNPJ e o ISIN de cada um foram conferidos na base da CVM e no COTAHIST, e o código foi conferido nos avisos do Fundos.NET. O modo Demonstração (valores do vídeo) existe só para o MXRF11; os demais usam dados de mercado.
 
 Para adicionar outro FII, inclua ticker, CNPJ, ISIN e o prazo típico em `src/assets/registry.ts`. Em seguida, rode `npm run check:live`.
+
+## Ferramentas de decisão no simulador
+
+- **Comparar com renda fixa.** O mesmo dinheiro, nas mesmas datas, é aplicado em:
+  - CDB (% do CDI);
+  - LCI/LCA (isenta);
+  - Tesouro Selic;
+  - Tesouro Prefixado e Tesouro IPCA+ (títulos mais longos ofertados hoje).
+
+  As taxas padrão são as oficiais do dia, e todas são editáveis. O cálculo usa IR regressivo **por aporte** e custódia de 0,20% a.a. no Tesouro. A comparação é contra o "líquido se vendido" do FII.
+- **Testes de estresse:**
+  - corte de 20% no dividendo;
+  - dividendo caindo 3% ao ano;
+  - fim da isenção (IR de 15%);
+  - preço caindo 2% ao ano.
+
+  Todos usam o mesmo capital inicial do cenário-base.
+- **Faixas Monte Carlo:** 500 trajetórias com semente fixa. A volatilidade do preço vem, por padrão, da volatilidade histórica de 12 meses do ativo (B3). O resultado mostra a faixa P10–P90 e a probabilidade de atingir a meta.
+- **Regra de compra mínima:** só compra quando os custos forem no máximo X% da ordem; caso contrário, acumula caixa.
+- **Cenários salvos e relatório com marca:** nome e logo do assessor, escritório ou educador no PDF.
+- **Onboarding em 3 perguntas:** renda desejada, aporte e fundo. O formulário completo continua disponível.
 
 ## Premissas avançadas
 

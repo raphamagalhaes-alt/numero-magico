@@ -6,3 +6,4 @@ server/data/market-store.json
 *.log
 server/data/holidays-learned.json
 release/
+server/data/cache/

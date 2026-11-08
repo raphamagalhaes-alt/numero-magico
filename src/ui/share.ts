@@ -5,7 +5,7 @@ import type { MainTab } from '../scenarios/defaults';
 export interface SharedState { ticker: string; tab: MainTab; form: FormState }
 
 const KEYS: (keyof FormState)[] = ['price', 'dividend', 'desiredShares', 'inflationPct', 'contribution', 'incomeGoal', 'incomeGoalBasis',
-  'startMonth', 'paymentLag', 'costPct', 'costFixed', 'dividendTaxPct', 'cgTaxPct', 'cashYieldPct'];
+  'startMonth', 'paymentLag', 'costPct', 'costFixed', 'dividendTaxPct', 'cgTaxPct', 'cashYieldPct', 'maxCostPct'];
 
 export function encodeShare(s: SharedState): string {
   const p = new URLSearchParams({ t: s.ticker, a: s.tab });

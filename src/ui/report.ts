@@ -19,7 +19,7 @@ export const TAB_LABEL = { nominal: 'Nominal', inflacao: 'Inflação', aportes: 
 export function reportMeta(r: SimulationResult, tab: keyof typeof TAB_LABEL, statusLabel: string, ticker: string): string[] {
   const i = r.input;
   return [
-    `MXRF11 · O Número Mágico — relatório de simulação (${ticker})`,
+    `Número Mágico — relatório de simulação (${ticker})`,
     `Gerado em: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} (horário de Brasília)`,
     `Cenário: aba ${TAB_LABEL[tab]} · Origem dos dados: ${statusLabel}`,
     `Preço da cota: ${fmtBRLPrecise(i.price)} · Dividendo mensal por cota: ${fmtBRLPrecise(i.dividend)} · Cotas desejadas/mês: ${i.desiredShares}`,

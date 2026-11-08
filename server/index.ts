@@ -12,6 +12,8 @@ import { nextNineAm, startDailyScheduler } from './scheduler';
 import { learnHolidays, loadExtraHolidays } from './calendar';
 import { createFetch } from './http';
 import { ASSETS } from '../src/assets/registry';
+import { DataHub } from './hub';
+import { EVENING_CRON } from './scheduler';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 8787);
@@ -23,7 +25,16 @@ const REFRESH_TOKEN = process.env.REFRESH_TOKEN; // opcional: exige "Authorizati
 loadExtraHolidays(LEARNED);
 
 const tickers = Object.keys(ASSETS);
-const isTicker = (t: string) => Object.hasOwn(ASSETS, t);
+const DATA_DIR = process.env.DATA_DIR ?? join(here, 'data', 'cache');
+const hub = new DataHub({
+  dir: DATA_DIR,
+  fetchImpl: createFetch(),
+  historyMonths: Number(process.env.HISTORY_MONTHS ?? 13),
+  dividendBackfillDays: Number(process.env.DIVIDEND_BACKFILL_DAYS ?? 400),
+  log: (m) => log('info', m),
+});
+/** Cadastro fixo (com demonstração) + qualquer FII/Fiagro do universo com CNPJ conhecido pela CVM. */
+const isTicker = (t: string) => Object.hasOwn(ASSETS, t) || Boolean(hub.cnpjOf(t));
 const kind = process.env.MARKET_PROVIDER ?? (process.env.MARKET_PROVIDER_URL ? 'http' : 'official');
 const httpFetch = createFetch();
 const provider: MarketDataProvider =
@@ -33,6 +44,7 @@ const provider: MarketDataProvider =
       cnpjByTicker: Object.fromEntries(tickers.map((t) => [t, ASSETS[t].cnpj])),
       isinByTicker: Object.fromEntries(tickers.map((t) => [t, ASSETS[t].isin])),
       fetchImpl: httpFetch,
+      resolve: (t) => ({ cnpj: hub.cnpjOf(t), isin: hub.isinOf(t) }),
       onMissingSessions: (d) => {
         const c = learnHolidays(LEARNED, d);
         if (c.length) log('info', `dias sem pregão confirmados: ${c.join(', ')}`);
@@ -58,9 +70,16 @@ const refreshAll = async () => {
     log('error', 'falha na atualização geral', { error: e instanceof Error ? e.message : String(e) });
   } finally { refreshingAll = false; }
 };
+const runHub = async () => { try { await hub.updateAll(); } catch (e) { log('error', 'central de dados', { error: e instanceof Error ? e.message : String(e) }); } };
+if (process.env.DISABLE_SCHEDULER !== '1') {
+  startDailyScheduler(runHub, (m) => log('info', m), undefined, 'central-dados-manha');
+  startDailyScheduler(runHub, (m) => log('info', m), EVENING_CRON, 'central-dados-noite');
+  if (process.env.SKIP_INITIAL_REFRESH !== '1' && process.env.MARKET_PROVIDER !== 'manual') void runHub();
+}
 if (provider.isConfigured() && process.env.DISABLE_SCHEDULER !== '1') {
   service.nextScheduledRun = () => nextNineAm(new Date());
   startDailyScheduler(refreshAll);
+  startDailyScheduler(refreshAll, (m) => log('info', m), EVENING_CRON, 'atualizacao-noite-mercado');
   if (provider.automatic && tickers.some((t) => !store.get(t).snapshot) && process.env.SKIP_INITIAL_REFRESH !== '1') void refreshAll();
 }
 
@@ -103,6 +122,12 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   try { url = new URL(req.url ?? '/', 'http://localhost'); } catch { return json(res, 400, { error: 'Requisição inválida' }); }
   if (url.pathname === '/api/health') return json(res, 200, { ok: true, provider: provider.name, configured: provider.isConfigured() });
   if (url.pathname === '/api/assets') return json(res, 200, tickers.map((t) => ({ ticker: t, name: ASSETS[t].name })));
+  if (url.pathname === '/api/universe') return json(res, 200, hub.universe(), { 'Cache-Control': 'public, max-age=300' });
+  if (url.pathname === '/api/macro') return json(res, 200, hub.macro() ?? { indicators: [], tesouro: { baseDate: null, bonds: [], source: '', sourceUrl: '' } });
+  if (url.pathname === '/api/rates/global') return json(res, 200, hub.global() ?? { rates: [] });
+  if (url.pathname === '/api/data/status') return json(res, 200, hub.status());
+  const am = url.pathname.match(/^\/api\/asset\/([A-Z0-9]{4,8})$/);
+  if (am) { const d = hub.detail(am[1]); return d ? json(res, 200, d) : json(res, 404, { error: 'Ativo sem dados' }); }
   const m = url.pathname.match(/^\/api\/market\/([A-Z0-9]{4,8})(\/refresh)?$/);
   if (m) {
     const ticker = m[1];

@@ -60,13 +60,16 @@ São perspectivas especializadas simuladas, não pessoas reais. Todo achado corr
 - **Link compartilhável do cenário** ("Copiar link do cenário") e metatags Open Graph.
 - **Aviso educativo junto aos números grandes**, além do rodapé, e também na planilha principal do Excel.
 
-## Recomendações que dependem de decisão sua
+## Recomendações — situação em 08/11/2026
 
-1. **Nome do produto.** A revisão de compliance aponta que "MXRF11 · O Número Mágico" associa a ferramenta a um ativo específico e a "magia" (ganho certo). Sugestão: marca neutra, como "Número Mágico — simulador de reinvestimento de FII". O nome foi mantido porque foi definido por você.
-2. **Licença de market data da B3.** Exibir cotações publicamente num produto pode exigir licença conforme a política de dados da B3 (verificar com a B3). O endpoint de busca do Fundos.NET é o mesmo usado pelo portal, mas não tem contrato público.
-3. **Comparar com renda fixa** (CDI, Tesouro Selic, Tesouro IPCA+, líquidos de IR regressivo) com os mesmos aportes. É o que um planejador financeiro perguntaria primeiro.
-4. **Faixas de resultado** (Monte Carlo ou histórico do fundo) em vez de um único caminho determinístico, e testes de estresse de corte de dividendo e de mudança na tributação.
-5. **Onboarding em 3 perguntas** (renda desejada, aporte possível, FII), com o formulário completo como "modo avançado". Tabela em cards por ano no celular.
-6. **Retenção:** o usuário informa quantas cotas já tem e recebe um alerta quando sai o aviso mensal de rendimento ("seu número mágico mudou para 182").
-7. **Monetização sem risco regulatório:** plano Pro com comparador de FIIs lado a lado, PDF com marca própria para assessores e educadores e cenários salvos. Sem ranking de "melhor FII".
-8. **Regra de compra mínima:** acumular caixa quando o custo da ordem passar de X%. Hoje, com custo fixo alto, o motor compra todo mês.
+| # | Recomendação | Situação |
+|---|---|---|
+| 1 | Nome neutro | **Feito:** "Número Mágico — Simulador e Explorador de Investimentos". O MXRF11 virou só o exemplo padrão. |
+| 2 | Licença de market data da B3 | **Pendente — depende de você.** Exibir cotações publicamente pode exigir licença; confirmar com a B3 antes de publicar. O app usa só arquivos públicos de download. |
+| 3 | Comparar com renda fixa | **Feito:** CDB, LCI/LCA, Tesouro Selic, Prefixado e IPCA+, com as taxas oficiais do dia, IR regressivo por aporte e custódia. |
+| 4 | Faixas de resultado e testes de estresse | **Feito:** Monte Carlo com 500 trajetórias e volatilidade histórica do ativo; 4 choques de estresse. |
+| 5 | Onboarding em 3 perguntas e tabela por ano no celular | **Feito.** |
+| 6 | Retenção | **Feito:** "Minha carteira" com progresso até o número mágico e alerta de novo aviso de rendimento, no app e por notificação do navegador. Alerta por e-mail exigiria contas de usuário e um serviço de envio. |
+| 7 | Recursos "Pro" | **Feitos:** comparador lado a lado, PDF com marca própria e cenários salvos. Não há cobrança: um plano pago exigiria contas e meio de pagamento. |
+| 8 | Regra de compra mínima | **Feito:** custo máximo por ordem; abaixo dele, o caixa acumula. |
+| — | Explorar outros ativos e investimentos | **Feito:** universo completo da B3 (ações, FIIs, ETFs, BDRs, Fiagros), juros e renda fixa do Brasil, e juros de cerca de 20 bancos centrais, com atualização diária em fontes oficiais. |

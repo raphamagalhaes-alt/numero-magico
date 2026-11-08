@@ -9,6 +9,7 @@ const HELP: Partial<Record<FormField, string>> = {
   costFixed: 'Corretagem fixa por ordem executada, em reais. Muitas corretoras cobram zero.',
   dividendTaxPct: 'IR retido sobre os rendimentos. Para pessoa física, a isenção de rendimentos de FII depende de requisitos do fundo e do próprio cotista (por exemplo, participação máxima no fundo); sem isenção há retenção na fonte. A legislação pode mudar — consulte a regra vigente e informe aqui a alíquota do seu caso.',
   cgTaxPct: 'IR sobre ganho de capital na venda de cotas de FII (20% para pessoa física, sem a faixa de isenção mensal das ações; prejuízos podem ser compensados — consulte a legislação vigente). Usado no patrimônio líquido em caso de venda total.',
+  maxCostPct: 'Regra de compra mínima: só compra quando os custos da ordem forem no máximo este percentual do valor comprado; senão acumula caixa para uma ordem maior. 0 = compra sempre que der.',
   cashYieldPct: 'Remuneração anual do saldo residual que fica em caixa entre as compras (ex.: conta remunerada). Juros truncados em centavos.',
 };
 
@@ -23,7 +24,7 @@ export function AdvancedParams({ form, errors, edit }: { form: FormState; errors
         Premissas avançadas — datas de pagamento, custos, impostos e caixa
         <span className="ml-auto text-xs text-mist-500 group-open:hidden">expandir</span>
       </summary>
-      <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-7">
+      <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-8">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="in-startMonth" className="label">1º pagamento</label>
           <input id="in-startMonth" data-testid="in-startMonth" type="month" className={`input num ${errors.startMonth ? 'input-error' : ''}`} value={form.startMonth} onChange={(e) => edit('startMonth')(e.target.value)} />
@@ -35,6 +36,7 @@ export function AdvancedParams({ form, errors, edit }: { form: FormState; errors
         {f('dividendTaxPct', 'IR s/ rendimentos', { suffix: '%' })}
         {f('cgTaxPct', 'IR s/ ganho capital', { suffix: '%' })}
         {f('cashYieldPct', 'Rend. do caixa', { suffix: '% a.a.' })}
+        {f('maxCostPct', 'Custo máx./ordem', { suffix: '%' })}
       </div>
     </details>
   );

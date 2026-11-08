@@ -60,6 +60,7 @@ export function simulate(input: SimulationInput): SimulationResult {
   const cgRate = dec(input.capitalGainsTaxRate ?? 0);
   const cashMonthly = dec(input.cashYieldAnnual ?? 0).isZero() ? ZERO : ONE.add(dec(input.cashYieldAnnual!)).pow(new D(1).div(12)).sub(1);
   const lag = input.paymentLagBusinessDays ?? DEFAULT_PAYMENT_LAG;
+  const maxCostPct = input.maxCostPct === null || input.maxCostPct === undefined || dec(input.maxCostPct).lte(0) ? null : dec(input.maxCostPct);
 
   const magic = magicNumber(input.price, input.dividend, input.desiredShares, input);
   const initialShares = input.initialSharesOverride ?? magic.shares;
@@ -102,7 +103,8 @@ export function simulate(input: SimulationInput): SimulationResult {
     // 4. disponível
     const available = reinvested.add(contribution).add(cashCarry).add(cashInterest);
     // 5–7. compra de cotas inteiras, com custos de negociação
-    const sharesBought = affordableShares(available, price, costs);
+    let sharesBought = affordableShares(available, price, costs);
+    if (maxCostPct && sharesBought > 0 && orderFees(sharesBought, price, costs).gt(price.mul(sharesBought).mul(maxCostPct))) sharesBought = 0; // acumula para ordem maior
     const purchaseFees = orderFees(sharesBought, price, costs);
     const purchaseCost = orderTotal(sharesBought, price, costs);
     const cashEnd = available.sub(purchaseCost);

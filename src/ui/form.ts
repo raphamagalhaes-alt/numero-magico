@@ -18,6 +18,7 @@ export interface FormState {
   dividendTaxPct: string;
   cgTaxPct: string;
   cashYieldPct: string;
+  maxCostPct: string;
 }
 export type FormField = Exclude<keyof FormState, 'incomeGoalBasis'>;
 
@@ -52,6 +53,7 @@ export function formFromParams(p: BaseParams): FormState {
     dividendTaxPct: pctBR(p.dividendTaxRate),
     cgTaxPct: pctBR(p.capitalGainsTaxRate),
     cashYieldPct: pctBR(p.cashYieldAnnual),
+    maxCostPct: pctBR(p.maxCostPct ?? '0'),
   };
 }
 
@@ -59,7 +61,7 @@ const FIELD_OF: Partial<Record<keyof SimulationInput, FormField>> = {
   price: 'price', dividend: 'dividend', desiredShares: 'desiredShares', inflationAnnual: 'inflationPct',
   monthlyContribution: 'contribution', incomeGoal: 'incomeGoal', startMonth: 'startMonth',
   paymentLagBusinessDays: 'paymentLag', tradingCostPct: 'costPct', tradingCostFixed: 'costFixed',
-  dividendTaxRate: 'dividendTaxPct', capitalGainsTaxRate: 'cgTaxPct', cashYieldAnnual: 'cashYieldPct',
+  dividendTaxRate: 'dividendTaxPct', capitalGainsTaxRate: 'cgTaxPct', cashYieldAnnual: 'cashYieldPct', maxCostPct: 'maxCostPct',
 };
 
 export function paramsFromForm(f: FormState, ticker: string): { params: BaseParams | null; errors: Partial<Record<FormField, string>> } {
@@ -87,6 +89,7 @@ export function paramsFromForm(f: FormState, ticker: string): { params: BasePara
     dividendTaxRate: frac('dividendTaxPct'),
     capitalGainsTaxRate: frac('cgTaxPct'),
     cashYieldAnnual: frac('cashYieldPct'),
+    maxCostPct: f.maxCostPct === undefined || f.maxCostPct === '' ? '0' : frac('maxCostPct'),
   };
   for (const issue of validateInput(inputForTab(params, 'aportes'))) {
     const k = FIELD_OF[issue.field];

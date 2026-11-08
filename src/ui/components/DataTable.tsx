@@ -52,6 +52,16 @@ function DataTableImpl({ result, showReal, showContrib }: { result: SimulationRe
           </div>
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-2 sm:hidden" data-testid="year-cards" aria-label="Resumo por ano">
+        {result.rows.filter((r) => r.monthOfYear === 12).map((r) => (
+          <div key={r.year} className={`rounded-lg p-3 text-xs ring-1 ring-white/5 ${r.year % 2 ? 'bg-ink-900' : 'bg-ink-850'}`}>
+            <div className="font-medium text-gold-300">Ano {r.year}</div>
+            <div className="num mt-1 text-mist-300">{fmtInt(r.sharesEnd)} cotas</div>
+            <div className="num text-mist-400">Renda {fmtBRL(r.netIncome)}</div>
+            <div className="num text-mist-100">{fmtBRL(r.totalEquity)}</div>
+          </div>
+        ))}
+      </div>
       <div className="card max-h-[70vh] overflow-auto" tabIndex={0} aria-label="Tabela com rolagem">
         <table data-testid="sim-table" className="num w-full border-separate border-spacing-0 text-right text-xs">
           <thead>

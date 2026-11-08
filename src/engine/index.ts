@@ -6,3 +6,5 @@ export * from './simulate';
 export * from './strategies';
 export * from './costs';
 export * from './calendar';
+export * from './fixed-income';
+export * from './montecarlo';

@@ -2,6 +2,8 @@ import cron from 'node-cron';
 import { TZ, addDays, isTradingDay, saoPauloDate } from './calendar';
 
 export const DAILY_CRON = '0 9 * * *';
+/** Segunda execução após a publicação do fechamento pela B3 (observada por volta das 20h30). */
+export const EVENING_CRON = '30 21 * * 1-5';
 
 /** Próxima execução efetiva: 9h de São Paulo (UTC−3, sem horário de verão desde 2019) em dia de pregão. */
 export function nextNineAm(now: Date): string {
@@ -21,12 +23,12 @@ export function shouldRunOn(now: Date): { run: boolean; reason: string } {
   return { run: true, reason: 'dia de pregão' };
 }
 
-export function startDailyScheduler(job: () => Promise<void>, log: (m: string) => void = console.log) {
-  const task = cron.schedule(DAILY_CRON, async () => {
+export function startDailyScheduler(job: () => Promise<void>, log: (m: string) => void = console.log, expr = DAILY_CRON, name = 'atualizacao-diaria-mercado') {
+  const task = cron.schedule(expr, async () => {
     const d = shouldRunOn(new Date());
     if (!d.run) return log(`[agendador] ${d.reason}`);
     log('[agendador] atualização diária iniciada');
     try { await job(); } catch (e) { log(`[agendador] falha: ${e instanceof Error ? e.message : e}`); }
-  }, { timezone: TZ, name: 'atualizacao-diaria-mercado', noOverlap: true });
+  }, { timezone: TZ, name, noOverlap: true });
   return task;
 }

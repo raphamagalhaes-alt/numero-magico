@@ -97,6 +97,8 @@ export interface OfficialProviderOptions {
   maxLookbackDays?: number;
   /** ticker → ISIN esperado (confere com o COTAHIST). */
   isinByTicker?: Record<string, string>;
+  /** Resolução dinâmica para ativos fora do cadastro fixo (ex.: qualquer FII do universo). */
+  resolve?: (ticker: string) => { cnpj?: string; isin?: string } | undefined;
   retries?: number;
   retryDelayMs?: number;
 }
@@ -173,7 +175,7 @@ export class OfficialB3FnetProvider implements MarketDataProvider {
       if (missing.length) this.opts.onMissingSessions?.(missing);
       const q = parseCotahist(text, ticker);
       if (!q) continue; // ativo sem negócios neste pregão: recua ao anterior
-      const expected = this.opts.isinByTicker?.[ticker];
+      const expected = this.opts.isinByTicker?.[ticker] ?? this.opts.resolve?.(ticker)?.isin;
       if (expected && q.isin !== expected) throw new Error(`ISIN divergente no COTAHIST para ${ticker}: ${q.isin} (esperado ${expected})`);
       return {
         price: q.close,
@@ -188,7 +190,7 @@ export class OfficialB3FnetProvider implements MarketDataProvider {
   }
 
   async fetchDividends(ticker: string): Promise<{ paid: DividendEvent | null; announced: DividendEvent | null; lag?: number; administrator?: string }> {
-    const cnpj = this.opts.cnpjByTicker[ticker];
+    const cnpj = this.opts.cnpjByTicker[ticker] ?? this.opts.resolve?.(ticker)?.cnpj;
     if (!cnpj) throw new Error(`CNPJ de ${ticker} não cadastrado`);
     const res = await this.get(FNET_SEARCH(cnpj), { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } });
     if (!res.ok) throw new Error(`Fundos.NET respondeu HTTP ${res.status}`);

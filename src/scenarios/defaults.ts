@@ -20,6 +20,7 @@ export interface BaseParams {
   dividendTaxRate: string; // fração
   capitalGainsTaxRate: string; // fração
   cashYieldAnnual: string; // fração
+  maxCostPct: string; // fração; '0' = sem regra
 }
 
 export const currentMonth = (now = new Date()) => saoPauloDate(now).slice(0, 7);
@@ -34,6 +35,7 @@ export function advancedDefaults(ticker = DEFAULT_TICKER) {
     dividendTaxRate: '0',
     capitalGainsTaxRate: '0.2',
     cashYieldAnnual: '0',
+    maxCostPct: '0',
   };
 }
 
@@ -78,6 +80,7 @@ export function inputForTab(p: BaseParams, tab: MainTab): SimulationInput {
     dividendTaxRate: p.dividendTaxRate,
     capitalGainsTaxRate: p.capitalGainsTaxRate,
     cashYieldAnnual: p.cashYieldAnnual,
+    maxCostPct: p.maxCostPct && p.maxCostPct !== '0' ? p.maxCostPct : null,
   };
   if (tab === 'aportes') return { ...base, monthlyContribution: p.monthlyContribution };
   return base;

@@ -1,5 +1,10 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Link2, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Link2, RotateCcw, ShieldAlert } from 'lucide-react';
+import { useUniverse } from './data';
+import { FixedIncomeCompare } from './components/FixedIncomeCompare';
+import { MonteCarloPanel } from './components/MonteCarloPanel';
+import { StressTests } from './components/StressTests';
+import { SavedScenarios, loadBrand } from './components/SavedScenarios';
 import { simulate, type SimulationResult } from '../engine';
 import { ASSETS, DEFAULT_TICKER, formatCnpj, officialSources } from '../assets/registry';
 import { advancedDefaults, demoParams, inputForTab, type MainTab } from '../scenarios/defaults';
@@ -26,7 +31,8 @@ type Status = 'demo' | 'market' | 'custom';
 interface Prefs { mode: Mode; status: Status; tab: MainTab; marketLabel: string; ticker: string }
 
 const DEFAULT_PREFS: Prefs = { mode: 'demo', status: 'demo', tab: 'nominal', marketLabel: '', ticker: DEFAULT_TICKER };
-const validPrefs = (p: Prefs) => Object.hasOwn(ASSETS, p.ticker) && ['nominal', 'inflacao', 'aportes'].includes(p.tab)
+const TICKER_RE = /^[A-Z0-9]{4,6}1[1-9]$/;
+const validPrefs = (p: Prefs) => (Object.hasOwn(ASSETS, p.ticker) || TICKER_RE.test(p.ticker)) && ['nominal', 'inflacao', 'aportes'].includes(p.tab)
   && ['demo', 'market'].includes(p.mode) && ['demo', 'market', 'custom'].includes(p.status);
 const TABS: { id: MainTab; label: string; charts: ChartKey[] }[] = [
   { id: 'nominal', label: 'Nominal', charts: ['equity', 'shares', 'income', 'cumDividends', 'incomeVsGoal'] },
@@ -43,16 +49,17 @@ const HELP: Partial<Record<FormField, string>> = {
   incomeGoal: 'Renda mensal desejada. A meta é atingida no primeiro mês em que a renda das cotas no início do mês a iguala ou supera.',
 };
 
-export function App() {
+export function SimulatorPage({ requestedTicker }: { requestedTicker?: string | null }) {
+  const universe = useUniverse();
   const shared = useMemo(() => (typeof window === 'undefined' ? null : decodeShare(window.location.search, formFromParams(demoParams(DEFAULT_TICKER)))), []);
   const [prefs, setPrefs] = useState<Prefs>(() => {
     const p = load('mxrf:prefs', DEFAULT_PREFS, validPrefs);
-    if (shared && Object.hasOwn(ASSETS, shared.ticker)) return { ...p, ticker: shared.ticker, tab: shared.tab, status: 'custom', mode: ASSETS[shared.ticker].demo ? 'demo' : 'market' };
+    if (shared && (Object.hasOwn(ASSETS, shared.ticker) || TICKER_RE.test(shared.ticker))) return { ...p, ticker: shared.ticker, tab: shared.tab, status: 'custom', mode: ASSETS[shared.ticker]?.demo ? 'demo' : 'market' };
     return p;
   });
   const TICKER = prefs.ticker;
-  const hasDemo = Boolean(ASSETS[TICKER].demo);
-  const [form, setForm] = useState<FormState>(() => (shared && Object.hasOwn(ASSETS, shared.ticker) ? shared.form : load('mxrf:form', formFromParams(demoParams(TICKER)))));
+  const hasDemo = Boolean(ASSETS[TICKER]?.demo);
+  const [form, setForm] = useState<FormState>(() => (shared && (Object.hasOwn(ASSETS, shared.ticker) || TICKER_RE.test(shared.ticker)) ? shared.form : load('mxrf:form', formFromParams(demoParams(TICKER)))));
   const [copied, setCopied] = useState(false);
   const shareLink = async () => {
     const url = `${window.location.origin}${window.location.pathname}?${encodeShare({ ticker: TICKER, tab: prefs.tab, form })}`;
@@ -162,13 +169,20 @@ export function App() {
   };
 
   const setTicker = (t: string) => {
-    if (t === TICKER || !Object.hasOwn(ASSETS, t)) return;
-    const demo = Boolean(ASSETS[t].demo);
+    if (t === TICKER || !(Object.hasOwn(ASSETS, t) || TICKER_RE.test(t))) return;
+    const demo = Boolean(ASSETS[t]?.demo);
     setMarket(null);
     setLocalSnap(loadRaw(`mxrf:manualSnapshot:${t}`, null));
     setForm((f) => (demo ? { ...formFromParams(demoParams(t)), contribution: f.contribution, incomeGoal: f.incomeGoal, incomeGoalBasis: f.incomeGoalBasis } : { ...f, ...formFromParams({ ...demoParams(t), ...advancedDefaults(t), monthlyContribution: '250', incomeGoal: '1000' }), contribution: f.contribution, incomeGoal: f.incomeGoal, incomeGoalBasis: f.incomeGoalBasis }));
     setPrefs((p) => ({ ...p, ticker: t, mode: demo ? p.mode : 'market', status: 'demo', marketLabel: '' }));
   };
+
+  // abertura a partir do Explorador/Carteira (#/simulador?t=XXXX11)
+  const setTickerRef = useRef(setTicker);
+  setTickerRef.current = setTicker;
+  useEffect(() => {
+    if (requestedTicker && TICKER_RE.test(requestedTicker)) setTickerRef.current(requestedTicker);
+  }, [requestedTicker]);
 
   const showReal = prefs.tab !== 'nominal';
   const aportesGoal = results?.aportes.summary.goalMonth ?? null;
@@ -177,31 +191,32 @@ export function App() {
     : undefined;
   const showContrib = prefs.tab === 'aportes';
   const tabDef = TABS.find((t) => t.id === prefs.tab)!;
-  const asset = ASSETS[TICKER];
+  const uMetrics = universe.data?.assets.find((a) => a.ticker === TICKER);
+  const otherFunds = useMemo(() => (universe.data?.assets ?? []).filter((a) => (a.cls === 'FII' || a.cls === 'FIAGRO') && a.cnpj && !Object.hasOwn(ASSETS, a.ticker)).sort((a, b) => a.ticker.localeCompare(b.ticker)), [universe.data]);
+  const asset = Object.hasOwn(ASSETS, TICKER) ? ASSETS[TICKER] : { ticker: TICKER, name: uMetrics?.name ?? 'Fundo listado', cnpj: uMetrics?.cnpj ?? '' };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 px-4 pb-10 sm:px-6">
-      <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-gold-500 focus:px-3 focus:py-2 focus:text-ink-950">Pular para o conteúdo</a>
-      <header className="no-print z-40 sm:sticky sm:top-0 -mx-4 flex flex-wrap items-center justify-between gap-3 border-b border-white/5 bg-ink-950/85 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-        <div className="flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950" aria-hidden><BarChart3 size={18} /></div>
-          <div>
-            <h1 className="text-base font-semibold tracking-tight sm:text-lg">MXRF11 <span className="text-gold-400">·</span> O Número Mágico</h1>
-            <p className="text-[11px] text-mist-500">{asset.name} · CNPJ {formatCnpj(asset.cnpj)} · Simulador educativo de reinvestimento</p>
-          </div>
+    <div className="flex flex-col gap-6">
+      <div className="no-print card flex flex-wrap items-center justify-between gap-3 p-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-mist-100">{asset.ticker} <span className="text-mist-400">· {asset.name}</span></p>
+          <p className="text-[11px] text-mist-500">{asset.cnpj ? `CNPJ ${formatCnpj(asset.cnpj)} · ` : ''}Simulador de reinvestimento de rendimentos</p>
         </div>
-        <nav aria-label="Seções" className="hidden gap-4 text-xs text-mist-400 lg:flex">
-          <a className="hover:text-gold-300" href="#simulador">Simulador</a>
-          <a className="hover:text-gold-300" href="#laboratorio">Laboratório</a>
-          <a className="hover:text-gold-300" href="#estrategias">Estratégias</a>
-        </nav>
         <div className="flex flex-wrap items-center gap-2">
           <label className="sr-only" htmlFor="ticker">Ativo</label>
           <select id="ticker" data-testid="ticker" className="input !w-auto !py-1.5 text-xs" value={TICKER} onChange={(e) => setTicker(e.target.value)}>
-            {Object.values(ASSETS).map((a) => <option key={a.ticker} value={a.ticker}>{a.ticker} — {a.name}</option>)}
+            <optgroup label="Cadastro verificado">
+              {Object.values(ASSETS).map((a) => <option key={a.ticker} value={a.ticker}>{a.ticker} — {a.name}</option>)}
+            </optgroup>
+            {otherFunds.length > 0 && (
+              <optgroup label="Outros FIIs e Fiagros (dados oficiais)">
+                {otherFunds.map((a) => <option key={a.ticker} value={a.ticker}>{a.ticker} — {a.name}</option>)}
+              </optgroup>
+            )}
+            {!Object.hasOwn(ASSETS, TICKER) && !otherFunds.some((a) => a.ticker === TICKER) && <option value={TICKER}>{TICKER}</option>}
           </select>
           <div className="seg" role="group" aria-label="Origem dos dados">
-            <button type="button" aria-pressed={prefs.mode === 'demo'} disabled={!hasDemo} title={hasDemo ? undefined : 'O exemplo do vídeo existe apenas para o MXRF11'} onClick={() => setMode('demo')} className="disabled:opacity-40">Demonstração</button>
+            <button type="button" aria-pressed={prefs.mode === 'demo'} disabled={!hasDemo} title={hasDemo ? undefined : 'O exemplo didático existe apenas para o MXRF11'} onClick={() => setMode('demo')} className="disabled:opacity-40">Demonstração</button>
             <button type="button" aria-pressed={prefs.mode === 'market'} onClick={() => setMode('market')}>Dados de mercado</button>
           </div>
           <span data-testid="status-badge" className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${statusTone}`}>
@@ -209,9 +224,9 @@ export function App() {
           </span>
           <button type="button" className="btn" onClick={restore} data-testid="restore"><RotateCcw size={14} aria-hidden />Restaurar padrão</button>
         </div>
-      </header>
+      </div>
 
-      <main id="conteudo" className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6">
         {tabResult?.magic.finite && (
           <a href="#magic-title" data-testid="mobile-strip" className="no-print card flex items-center justify-between gap-3 p-4 sm:hidden">
             <span className="text-xs text-mist-400">Número mágico<br /><span className="num text-2xl font-semibold text-gold-300">{tabResult.magic.shares} cotas</span></span>
@@ -285,7 +300,13 @@ export function App() {
               </div>
             </div>
 
+            <SavedScenarios current={{ ticker: TICKER, tab: prefs.tab, form }} onLoad={(sc) => {
+              if (sc.ticker !== TICKER) setTicker(sc.ticker);
+              setForm({ ...formFromParams(demoParams(DEFAULT_TICKER)), ...sc.form });
+              setPrefs((p) => ({ ...p, ticker: sc.ticker, tab: sc.tab, status: 'custom' }));
+            }} />
             <div className="print-only text-xs">
+              {(() => { const b = loadBrand(); return b.name || b.logo ? <div className="mb-3 flex items-center gap-3 border-b pb-2">{b.logo && <img src={b.logo} alt="" className="h-10" />}<strong className="text-base">{b.name}</strong></div> : null; })()}
               {reportMeta(tabResult, prefs.tab, statusLabel, TICKER).map((l) => <p key={l} className="mb-1">{l}</p>)}
             </div>
 
@@ -302,22 +323,25 @@ export function App() {
             </div>
 
             <div className="no-print flex flex-col gap-10 border-t border-white/5 pt-8">
+              <FixedIncomeCompare result={tabResult} />
+              <StressTests result={tabResult} />
+              <MonteCarloPanel key={`${TICKER}-${uMetrics?.vol12m ?? ''}`} result={tabResult} histVol={uMetrics?.vol12m ?? null} />
               <StrategyCompare base={tabResult.input} />
               <ScenarioLab base={tabResult.input} />
             </div>
           </>
         )}
         </div>
-      </main>
+      </div>
 
-      <footer className="mt-auto flex flex-col gap-3 border-t border-white/5 pt-6 text-xs text-mist-500">
-        <p data-testid="disclaimer" className="text-mist-400">{DISCLAIMER}</p>
+      <section aria-label="Premissas e fontes" className="flex flex-col gap-3 border-t border-white/5 pt-6 text-xs text-mist-500">
+        <p className="print-only">{DISCLAIMER}</p>
         <details className="no-print">
           <summary className="cursor-pointer text-mist-400 hover:text-gold-300">Premissas do modelo</summary>
           <ul className="mt-2 list-disc space-y-1 pl-5">{LIMITATIONS.map((l) => <li key={l}>{l}</li>)}</ul>
         </details>
         <p>Aba atual: {TAB_LABEL[prefs.tab]} · Fontes oficiais para conferência: {officialSources(asset).map((s, i) => <span key={s.url}>{i > 0 && ' · '}<a className="underline hover:text-gold-300" href={s.url} target="_blank" rel="noreferrer noopener">{s.label}</a></span>)}</p>
-      </footer>
+      </section>
     </div>
   );
 }

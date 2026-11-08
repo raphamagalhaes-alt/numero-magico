@@ -48,6 +48,11 @@ export interface SimulationInput {
   capitalGainsTaxRate?: Numeric;
   /** Remuneração anual do saldo residual em caixa, fração. */
   cashYieldAnnual?: Numeric;
+  /**
+   * Regra de compra mínima: só executa a ordem se os custos de negociação forem no máximo esta
+   * fração do valor comprado; caso contrário acumula caixa para uma ordem maior. null = sem regra.
+   */
+  maxCostPct?: Numeric | null;
 }
 
 export interface MagicNumberResult {

@@ -56,9 +56,9 @@ export const DEFAULT_TICKER = 'MXRF11';
 export const formatCnpj = (c: string) => c.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
 
 /** Links oficiais verificados para conferência manual. */
-export function officialSources(a: AssetDefinition): { label: string; url: string }[] {
+export function officialSources(a: { ticker: string; cnpj?: string }): { label: string; url: string }[] {
   return [
-    { label: `Fundos.NET — documentos do ${a.ticker}`, url: `https://fnet.bmfbovespa.com.br/fnet/publico/abrirGerenciadorDocumentosCVM?cnpjFundo=${a.cnpj}` },
+    ...(a.cnpj ? [{ label: `Fundos.NET — documentos do ${a.ticker}`, url: `https://fnet.bmfbovespa.com.br/fnet/publico/abrirGerenciadorDocumentosCVM?cnpjFundo=${a.cnpj}` }] : []),
     { label: 'CVM — dados abertos de FII', url: 'https://dados.cvm.gov.br/dataset/fii-doc-inf_mensal' },
   ];
 }

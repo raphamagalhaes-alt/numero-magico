@@ -53,6 +53,8 @@ export function validateInput(input: SimulationInput): ValidationIssue[] {
     const d = dec(v as string);
     if (d.lt(0) || d.gte(1)) add(f, 'Informe um percentual entre 0% e 99,99%.');
   }
+  if (input.maxCostPct !== undefined && input.maxCostPct !== null && (!isFiniteNumeric(input.maxCostPct) || dec(input.maxCostPct).lt(0) || dec(input.maxCostPct).gt(1)))
+    add('maxCostPct', 'O custo máximo por ordem deve estar entre 0% e 100%.');
   if (input.tradingCostFixed !== undefined && (!isFiniteNumeric(input.tradingCostFixed) || dec(input.tradingCostFixed).lt(0)))
     add('tradingCostFixed', 'O custo fixo não pode ser negativo.');
   if (input.cashYieldAnnual !== undefined && (!isFiniteNumeric(input.cashYieldAnnual) || dec(input.cashYieldAnnual).lte(-1)))
