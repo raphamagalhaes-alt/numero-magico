@@ -9,3 +9,4 @@ release/
 server/data/cache/
 build/
 release-desktop/
+dist-web/

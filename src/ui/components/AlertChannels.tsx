@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BellRing, CalendarPlus, Rss } from 'lucide-react';
+import { IS_WEB } from '../mode';
 
 const b64ToBytes = (b64: string) => {
   const s = atob((b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
@@ -31,6 +32,11 @@ export function AlertChannels({ tickers }: { tickers: string[] }) {
   };
 
   if (!tickers.length) return null;
+  if (IS_WEB) return (
+    <section className="card p-4 text-xs text-mist-400" data-testid="alert-channels">
+      Alertas por calendário, RSS, notificação push e Telegram ficam no <strong className="text-mist-200">app do computador</strong> (eles precisam de um processo rodando para verificar novos avisos). No site, os novos rendimentos aparecem aqui ao abrir a carteira.
+    </section>
+  );
   return (
     <section className="card flex flex-col gap-3 p-4" aria-labelledby="al-title" data-testid="alert-channels">
       <h2 id="al-title" className="flex items-center gap-2 text-sm font-medium"><BellRing size={16} className="text-gold-400" aria-hidden />Receber alertas de proventos (grátis)</h2>

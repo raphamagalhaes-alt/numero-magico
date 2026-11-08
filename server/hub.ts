@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join } from 'node:path';
 import { strFromU8, unzipSync } from 'fflate';
 import { addDays, addMonths, isTradingDay, saoPauloDate } from '../src/engine/calendar';
-import { averageVolume, annualizedVolatility, dividendYield12m, maxDrawdown, pctChange } from '../src/market/metrics';
+import { computeMetrics } from '../src/market/analytics';
 import type { AssetDetail, AssetMetrics, DatasetStatus, GlobalRatesResponse, MacroResponse, UniverseResponse } from '../src/market/universe';
 import { COTAHIST_URL } from './providers/official';
 import { parseCotahistAll } from './sources/cotahist';
@@ -320,46 +320,14 @@ export class DataHub {
   metrics(ticker: string): AssetMetrics | null {
     const meta = this.history.meta(ticker);
     if (!meta) return null;
-    const pts = this.history.points(ticker);
-    const last = pts[pts.length - 1];
-    if (!last) return null;
-    const m: AssetMetrics = {
-      ticker, name: meta.name, cls: meta.cls, isin: meta.isin, spec: meta.spec, close: last.close, sessionDate: last.date,
-      chg1d: pctChange(pts, 1), chg1m: pctChange(pts, 21), chg12m: pctChange(pts, 252) ?? (pts.length > 200 ? pctChange(pts, pts.length - 1) : null),
-      avgVolume21: averageVolume(pts, 21), vol12m: annualizedVolatility(pts), maxDrawdown12m: maxDrawdown(pts), sessions: pts.length,
-    };
-    if (meta.cls === 'ACAO') {
-      const ev = this.stockDivs.get(meta.isin);
-      if (ev.length) {
-        const today = saoPauloDate(this.now());
-        const last = ev[ev.length - 1];
-        const dy = dividendYield12m(ev.map((e) => ({ amount: e.amount, recordDate: e.recordDate, paymentDate: e.paymentDate ?? '' })), m.close, today);
-        Object.assign(m, {
-          lastDividend: { amount: last.amount, recordDate: last.recordDate, paymentDate: last.paymentDate ?? '', announced: !last.paymentDate || last.paymentDate > today, kind: last.kind },
-          dy12m: dy.dy, dividends12mCount: dy.count, dyAnnualizedLast: null,
-        });
-      }
-    }
-    if (meta.cls === 'FII' || meta.cls === 'FIAGRO') {
-      const info = this.fiiByIsin(meta.isin);
-      const divs = this.dividends.get(ticker);
-      const today = saoPauloDate(this.now());
-      const lastDiv = divs[divs.length - 1];
-      // DY de 12 meses só com cobertura completa de avisos (evita somar poucos pagamentos e subestimar)
-      const cov = this.dividends.d.coveredFrom;
-      const fullCoverage = Boolean(cov && cov <= addDays(today, -335));
-      const dy = fullCoverage ? dividendYield12m(divs, last.close, today) : { dy: null, count: 0 };
-      Object.assign(m, {
-        cnpj: info?.cnpj, vpPerShare: info?.vpPerShare ?? null,
-        // P/VP fora de 0,2–5 indica VP/cota incompatível com a cota negociada (desdobramento/grupamento recente)
-        pvp: info?.vpPerShare && last.close / info.vpPerShare >= 0.2 && last.close / info.vpPerShare <= 5 ? last.close / info.vpPerShare : null,
-        pvpInconsistent: Boolean(info?.vpPerShare) && !(last.close / info!.vpPerShare! >= 0.2 && last.close / info!.vpPerShare! <= 5),
-        shareholders: info?.shareholders ?? null, segment: info?.segment ?? null, administrator: info?.administrator ?? null, cvmRefDate: info?.refDate ?? null,
-        lastDividend: lastDiv ? { amount: lastDiv.amount, recordDate: lastDiv.recordDate, paymentDate: lastDiv.paymentDate, announced: lastDiv.paymentDate > today } : null,
-        dy12m: dy.dy, dividends12mCount: dy.count, dyAnnualizedLast: lastDiv ? (lastDiv.amount * 12) / last.close : null,
-      });
-    }
-    return m;
+    const info = meta.cls === 'FII' || meta.cls === 'FIAGRO' ? this.fiiByIsin(meta.isin) : undefined;
+    return computeMetrics(ticker, meta, this.history.points(ticker), {
+      today: saoPauloDate(this.now()),
+      fii: info ? { cnpj: info.cnpj, vpPerShare: info.vpPerShare, shareholders: info.shareholders, segment: info.segment, administrator: info.administrator, refDate: info.refDate } : null,
+      fundDividends: meta.cls === 'FII' || meta.cls === 'FIAGRO' ? this.dividends.get(ticker) : undefined,
+      fundCoverageFrom: this.dividends.d.coveredFrom,
+      stockDividends: meta.cls === 'ACAO' ? this.stockDivs.get(meta.isin).map((e) => ({ amount: e.amount, recordDate: e.recordDate, paymentDate: e.paymentDate ?? '', kind: e.kind })) : undefined,
+    });
   }
 
   universe(): UniverseResponse {

@@ -284,7 +284,7 @@ function stockStatus(ticker: string) {
       lastPaidDividend: win.length ? {
         amountPerShare: monthly.toFixed(), recordDate: last.recordDate, paymentDate: last.paymentDate ?? last.recordDate,
         referencePeriod: `média mensal de ${win.length} proventos em 12 meses (R$ ${sum.toFixed(4)}/ação, dividendos + JCP brutos)`,
-        source: 'B3 — Empresas Listadas (proventos em dinheiro)',
+        source: 'B3 — Empresas Listadas (proventos em dinheiro)', estimated: 'media12m',
       } : null,
       lastAnnouncedDividend: null,
     },

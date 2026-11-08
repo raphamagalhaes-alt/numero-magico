@@ -1,6 +1,44 @@
-# Como instalar e usar o Número Mágico
+# Como usar o Número Mágico
 
-Guia para você e sua família. É uso pessoal: **cada pessoa instala no próprio computador.**
+Guia para você e sua família. Há duas formas de usar, e as duas são regulares:
+
+| | **Site** (mais fácil) | **App do computador** (mais completo) |
+|---|---|---|
+| Como acessar | Abrir um endereço no navegador, inclusive no celular | Instalar no Windows ou no Mac |
+| Precisa instalar? | Não | Sim |
+| Cotações | Sua chave brapi (automático) ou arquivo da B3 enviado no site | Arquivo da B3 importado da pasta Downloads, mais a chave brapi |
+| Rendimentos de FII | **Estimados** pela CVM (média de 12 meses; erro típico de até ~3%) | **Exatos**, dos avisos oficiais |
+| Dividendos de ações | Não disponíveis | Sim, com data-com e pagamento |
+| Alertas (calendário, push, Telegram) | Não | Sim |
+
+## 0. Usar pelo site (recomendado para o dia a dia)
+
+1. Abra o endereço do site (veja a seção "Publicar o site" no fim).
+2. No celular, use **"Adicionar à tela inicial"** para ter o ícone.
+3. Vá em **Status dos dados**:
+   - cole a sua chave gratuita da brapi (crie em https://brapi.dev), e/ou
+   - envie um arquivo COTAHIST baixado no site da B3.
+4. Adicione seus ativos em **Minha carteira**. O site busca as cotações deles sozinho sempre que você abre.
+
+Tudo o que é seu (chave, cotações e carteira) fica **só no seu navegador**. O site não guarda nem repassa nenhuma cotação, e os testes automáticos confirmam que ele nunca acessa servidores da B3. Cada pessoa da família usa o mesmo endereço, mas com a **própria** chave.
+
+## Publicar o site (uma vez, grátis)
+
+**Opção A: GitHub Pages.** Recomendada, porque atualiza os dados abertos sozinha duas vezes por dia.
+1. Crie uma conta grátis em https://github.com e um repositório vazio, por exemplo `numero-magico`.
+2. Envie o código. Eu faço isso por você se a conta GitHub estiver conectada ao Claude.
+3. No repositório, vá em **Settings → Pages → Source: GitHub Actions**.
+4. O site fica em `https://SEU-USUARIO.github.io/numero-magico/`.
+
+**Opção B: Netlify Drop.** É imediata, mas os dados abertos ficam congelados até você enviar de novo.
+1. Descompacte `numero-magico-site.zip`.
+2. Arraste a pasta para https://app.netlify.com/drop.
+
+Juros, Tesouro e dados da CVM só se atualizam quando você reenviar a pasta. As cotações pela chave brapi continuam funcionando normalmente.
+
+# App do computador
+
+Uso pessoal: **cada pessoa instala no próprio computador.**
 
 ## 1. Instalar
 

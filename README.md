@@ -19,6 +19,26 @@ Plataforma educativa com **dados oficiais atualizados diariamente**. Tem seis p�
 
 O MXRF11 continua como exemplo didático padrão (modo Demonstração).
 
+## Modo site (GitHub Pages) — regular e sem contrato
+
+`npm run build:web` gera `dist-web/`, um site estático com o **backend rodando no navegador** (`src/web/backend.ts`). O código intercepta as chamadas `/api` e calcula tudo no aparelho do usuário.
+
+**O que o site publica:** apenas código e **dados abertos** (`data/open-data.json`, gerado por `scripts/build-open-data.ts`):
+- CVM (licença ODbL): cadastro, VP/cota, cotistas e rendimento mensal estimado;
+- Banco Central;
+- Tesouro;
+- BIS, Fed e BCE.
+
+**O que fica com o usuário, no navegador (IndexedDB):**
+- **Arquivos COTAHIST** baixados por ele, lidos em fluxo, sem carregar o arquivo inteiro descompactado.
+- **Chave pessoal da brapi:** histórico de 3 meses e fechamento da lista de acompanhamento, consultados direto do navegador. A brapi aceita CORS.
+
+**Rendimentos de FII no site:** média de 12 meses do informe da CVM (DY do mês × VP/cota). Medido contra os avisos reais: erro de −3,1% a +0,8% em MXRF11, HGLG11, KNRI11, KNCR11 e VISC11. É sempre rotulado como **estimativa**.
+
+**Testes:** `npm run test:web` cobre desktop e celular, e verifica que **nenhuma requisição vai à B3** e que o único destino externo é a brapi, com a chave do usuário.
+
+**Publicação:** o workflow `site.yml` publica no GitHub Pages e reconstrói os dados abertos às 10h17 e às 22h47 (Brasília). Há `robots.txt` para o site não ser indexado.
+
 ## App desktop (Windows, Mac, Linux) e celular
 
 O guia para usuários está em [`docs/INSTALAR.md`](docs/INSTALAR.md). Em resumo:
@@ -56,6 +76,8 @@ npm run dev          # frontend (http://localhost:5173) + API de dados (http://l
 | `npm run check:live` | Consulta ao vivo B3 + Fundos.NET para todos os ativos |
 | `npm run data:update` | Rodada completa da central de dados (cotações, CVM, rendimentos, BCB, Tesouro, juros globais) |
 | `npm start` | Build + servidor único (frontend + API + agendador) |
+| `npm run test:web` | 6 testes do modo site (desktop e celular) |
+| `npm run build:web` | Gera o site estático com os dados abertos do dia |
 | `npm run test:e2e` | 33 testes de interface (Playwright) em desktop, tablet e celular |
 | `npm run typecheck` | Checagem de tipos do frontend e do servidor |
 | `npm run lint` | ESLint (inclui `react-hooks/exhaustive-deps`) |

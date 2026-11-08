@@ -65,3 +65,15 @@ Os documentos abaixo foram lidos diretamente nos sites da B3 em 08/11/2026. Isto
 4. **Celular:** é o próprio usuário acessando o próprio computador na rede de casa, com senha.
 
 Se um dia o app for oferecido a terceiros, comercialmente ou não, será preciso o contrato de distribuição com a B3, ou um distribuidor licenciado, e um plano da brapi (ou de outro fornecedor) que permita uso em produto.
+
+## Modo site
+
+O site hospedado (GitHub Pages ou Netlify) publica **somente código e dados abertos**: CVM (ODbL), Banco Central, Tesouro, BIS, Fed e BCE.
+
+**Cotações:** vêm de cada usuário, dentro do navegador dele:
+- arquivo da B3 baixado por ele, para uso pessoal;
+- chave pessoal da brapi.
+
+Nenhuma cotação passa pelo servidor do site, e não há redistribuição. Os testes automáticos verificam que o site nunca acessa servidores da B3.
+
+**Rendimentos de FII e dividendos de ações:** o Fundos.NET e o portal de empresas listadas da B3 não aceitam acesso direto do navegador (CORS). Republicá-los pelo site seria redistribuição. Por isso o site usa a estimativa da CVM (dado aberto) para FIIs e não mostra dividendos de ações. O app do computador, de uso pessoal, continua com os dados exatos.

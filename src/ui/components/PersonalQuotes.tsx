@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { KeyRound } from 'lucide-react';
-import { useRemote } from '../data';
+import { invalidateData, useRemote } from '../data';
+import { IS_WEB } from '../mode';
 
 interface SettingsPublic { brapiConfigured: boolean; brapiTokenHint: string | null; watchlist: string[] }
 
@@ -19,13 +20,15 @@ export function PersonalQuotes() {
     setToken('');
     setMsg(value ? 'Chave salva neste computador. Buscando os fechamentos dos ativos acompanhados…' : 'Chave removida.');
     s.reload();
+    // a busca na brapi termina em segundo plano: atualiza as telas em seguida
+    setTimeout(invalidateData, 4000);
   };
   return (
     <section className="card flex flex-col gap-3 p-5" data-testid="personal-quotes" aria-labelledby="pq-title">
       <h2 id="pq-title" className="flex items-center gap-2 text-base font-semibold"><KeyRound size={16} className="text-gold-400" aria-hidden />Cotações diárias automáticas com a sua chave gratuita</h2>
       <div className="text-xs leading-relaxed text-mist-300">
-        <p>Crie uma conta gratuita em <a className="underline hover:text-gold-300" href="https://brapi.dev" target="_blank" rel="noreferrer noopener">brapi.dev</a> e cole a sua chave aqui. O app passa a buscar sozinho, às 9h e às 21h30, o fechamento dos ativos da sua <strong>carteira, comparações e simulações</strong>, direto do seu computador.</p>
-        <p className="mt-1 text-mist-400">Por que é regular: a chave é sua, fica só neste aparelho e os dados são para o seu uso pessoal — o app não repassa cotações a ninguém (os termos da brapi vedam redistribuição e proxy público). Plano gratuito: ~15 mil consultas/mês, 1 ativo por consulta; o app limita a 60 ativos por atualização. Para o universo completo (explorador), importe o arquivo COTAHIST abaixo de vez em quando.</p>
+        <p>Crie uma conta gratuita em <a className="underline hover:text-gold-300" href="https://brapi.dev" target="_blank" rel="noreferrer noopener">brapi.dev</a> e cole a sua chave aqui. {IS_WEB ? <>Sempre que você abrir o site, ele busca (no máximo 1× por dia e de novo após o fechamento) o histórico de 3 meses e o fechamento dos ativos da sua <strong>carteira, comparações e simulações</strong>, direto do seu navegador.</> : <>O app passa a buscar sozinho, às 9h e às 21h30, o fechamento dos ativos da sua <strong>carteira, comparações e simulações</strong>, direto do seu computador.</>}</p>
+        <p className="mt-1 text-mist-400">Por que é regular: a chave é sua, fica só neste aparelho (no navegador, no armazenamento local) e os dados são para o seu uso pessoal — o app não repassa cotações a ninguém (os termos da brapi vedam redistribuição e proxy público). Plano gratuito: ~15 mil consultas/mês, 1 ativo por consulta; o app limita a 60 ativos por atualização. Para o universo completo (explorador), importe o arquivo COTAHIST abaixo de vez em quando.</p>
       </div>
       {s.data && (
         <p className="text-xs" data-testid="pq-status">

@@ -17,12 +17,14 @@
     "check:live": "tsx scripts/check-live.ts",
     "start": "npm run build && tsx server/index.ts",
     "lint": "eslint .",
-    "ci": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e",
+    "ci": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e && npm run test:web",
     "data:update": "tsx scripts/update-data.ts",
     "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=build/server.mjs",
     "build:desktop": "npm run build && npm run build:server",
     "desktop": "npm run build:desktop && electron .",
-    "dist:desktop": "npm run build:desktop && electron-builder --publish never"
+    "dist:desktop": "npm run build:desktop && electron-builder --publish never",
+    "build:web": "tsc -p tsconfig.app.json && vite build --mode web --outDir dist-web --base ./ && tsx scripts/build-open-data.ts dist-web/data/open-data.json",
+    "test:web": "playwright test -c playwright.web.config.ts --trace off"
   },
   "dependencies": {
     "decimal.js": "10.6.0",

@@ -2,7 +2,11 @@
 import { useEffect, useState } from 'react';
 import type { AssetDetail, DatasetStatus, GlobalRatesResponse, MacroResponse, UniverseResponse } from '../market/universe';
 
-const cache = new Map<string, Promise<unknown>>();
+const cache = new Map<string, { at: number; p: Promise<unknown> }>();
+const TTL = 30_000;
+const listeners = new Set<() => void>();
+/** Descarta dados em memória (após importar cotações, salvar chave etc.) e avisa as telas abertas. */
+export function invalidateData() { cache.clear(); for (const l of listeners) l(); }
 
 async function getJson<T>(path: string): Promise<T> {
   let res: Response;
@@ -15,12 +19,13 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export function fetchCached<T>(path: string, force = false): Promise<T> {
-  if (force || !cache.has(path)) {
+  const hit = cache.get(path);
+  if (force || !hit || Date.now() - hit.at > TTL) {
     const p = getJson<T>(path);
-    cache.set(path, p);
+    cache.set(path, { at: Date.now(), p });
     p.catch(() => cache.delete(path));
   }
-  return cache.get(path) as Promise<T>;
+  return cache.get(path)!.p as Promise<T>;
 }
 
 export interface Remote<T> { data: T | null; error: string | null; loading: boolean; reload: () => void }
@@ -28,6 +33,7 @@ export interface Remote<T> { data: T | null; error: string | null; loading: bool
 export function useRemote<T>(path: string | null): Remote<T> {
   const [state, setState] = useState<{ data: T | null; error: string | null; loading: boolean }>({ data: null, error: null, loading: Boolean(path) });
   const [nonce, setNonce] = useState(0);
+  useEffect(() => { const l = () => setNonce((n) => n + 1); listeners.add(l); return () => { listeners.delete(l); }; }, []);
   useEffect(() => {
     if (!path) return;
     let alive = true;

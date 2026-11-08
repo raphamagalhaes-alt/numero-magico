@@ -31,6 +31,8 @@ export interface DividendEvent {
   taxExempt?: boolean;
   /** Mês de referência informado no aviso (ex.: "Outubro-2026"). */
   referencePeriod?: string;
+  /** Não é um aviso por evento: 'cvm' = estimativa do informe mensal; 'media12m' = média mensal de 12 meses. */
+  estimated?: 'cvm' | 'media12m';
   source: string;
   sourceUrl?: string;
 }

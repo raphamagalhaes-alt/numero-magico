@@ -54,3 +54,39 @@ export async function fetchCvmFii(fetchImpl: typeof fetch, year: number): Promis
   };
   return parseCvmFii(pick('geral'), pick('complemento'));
 }
+
+/** Estimativa mensal de rendimento por cota pelo informe da CVM: DY do mês × VP/cota (dado aberto, ODbL). */
+export interface CvmMonthly { ref: string; dps: number; dyMonth: number; vp: number }
+
+export function parseCvmMonthly(complementoCsv: string): Map<string, CvmMonthly[]> {
+  const byCnpj = new Map<string, Map<string, { v: string; row: Record<string, string> }>>();
+  for (const r of csvObjects(complementoCsv, ';')) {
+    const k = digits(r.CNPJ_Fundo_Classe ?? '');
+    const ref = (r.Data_Referencia ?? '').slice(0, 7);
+    if (!k || !/^\d{4}-\d{2}$/.test(ref)) continue;
+    const m = byCnpj.get(k) ?? byCnpj.set(k, new Map()).get(k)!;
+    const prev = m.get(ref);
+    const v = String(r.Versao ?? '').padStart(4, '0');
+    if (!prev || v > prev.v) m.set(ref, { v, row: r });
+  }
+  const out = new Map<string, CvmMonthly[]>();
+  for (const [k, months] of byCnpj) {
+    const list: CvmMonthly[] = [];
+    for (const [ref, { row }] of months) {
+      const dy = brNumber(row.Percentual_Dividend_Yield_Mes);
+      const vp = brNumber(row.Valor_Patrimonial_Cotas);
+      if (dy === null || vp === null || dy <= 0 || vp <= 0 || dy > 0.2) continue;
+      list.push({ ref, dyMonth: dy, vp, dps: Math.round(dy * vp * 1e6) / 1e6 });
+    }
+    out.set(k, list.sort((a, b) => a.ref.localeCompare(b.ref)));
+  }
+  return out;
+}
+
+export async function fetchCvmPackage(fetchImpl: typeof fetch, year: number): Promise<{ geral: string; complemento: string }> {
+  const res = await fetchImpl(CVM_FII_URL(year));
+  if (!res.ok) throw new Error(`CVM respondeu HTTP ${res.status}`);
+  const files = unzipSync(new Uint8Array(await res.arrayBuffer()));
+  const pick = (part: string) => { const k = Object.keys(files).find((f) => f.includes(part)); if (!k) throw new Error(`Arquivo ${part} ausente`); return strFromU8(files[k], true); };
+  return { geral: pick('geral'), complemento: pick('complemento') };
+}

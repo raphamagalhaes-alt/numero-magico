@@ -38,6 +38,8 @@ export interface AssetMetrics {
   pvp?: number | null;
   /** true quando o VP/cota da CVM não é compatível com a cota negociada (ex.: desdobramento recente). */
   pvpInconsistent?: boolean;
+  /** true quando o rendimento é estimado pelo informe mensal da CVM (modo site), e não por aviso. */
+  dividendsEstimated?: boolean;
   shareholders?: number | null;
   segment?: string | null;
   administrator?: string | null;

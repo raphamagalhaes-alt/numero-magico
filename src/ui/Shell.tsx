@@ -13,6 +13,7 @@ import { DISCLAIMER } from './report';
 import { PAGES, go, useRoute } from './route';
 import { useUniverse } from './data';
 import { loadRaw } from './storage';
+import { IS_WEB } from './mode';
 
 export function Shell() {
   const route = useRoute();
@@ -41,7 +42,7 @@ export function Shell() {
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950" aria-hidden><BarChart3 size={18} /></span>
           <span>
             <span className="block text-base font-semibold tracking-tight sm:text-lg">Número Mágico</span>
-            <span className="block text-[11px] text-mist-500">Simulador e explorador de investimentos · dados oficiais</span>
+            <span className="block text-[11px] text-mist-500">Simulador e explorador de investimentos · dados oficiais{IS_WEB ? ' · versão site' : ''}</span>
           </span>
         </a>
         <nav aria-label="Páginas" className="-mx-1 flex max-w-full gap-1 overflow-x-auto text-xs">

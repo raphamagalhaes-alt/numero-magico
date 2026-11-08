@@ -88,7 +88,7 @@ export function MarketPanel({ status, localSnapshot, loading, error, onRefresh, 
               ) : <div className="mt-1 text-sm text-mist-500">Não disponível</div>}
             </div>
             <DivBlock title="Último rendimento anunciado (a pagar)" ev={snap.lastAnnouncedDividend} highlight={used?.kind === 'anunciado'} />
-            <DivBlock title="Último rendimento pago" ev={snap.lastPaidDividend} highlight={used?.kind === 'pago'} />
+            <DivBlock title={snap.lastPaidDividend?.estimated === 'cvm' ? 'Rendimento mensal ESTIMADO (CVM)' : snap.lastPaidDividend?.estimated === 'media12m' ? 'Média mensal de proventos (12 meses)' : 'Último rendimento pago'} ev={snap.lastPaidDividend} highlight={used?.kind === 'pago'} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-mist-400">
             <span>Provedor: {snap.provider}{snap.administrator ? ` · Administrador: ${snap.administrator}` : ''}{snap.paymentLagBusinessDays !== undefined ? ` · Prazo observado data-com→pagamento: ${snap.paymentLagBusinessDays} dias úteis` : ''} · Última consulta bem-sucedida: {dt(snap.fetchedAt)}{status?.nextScheduledRun ? ` · Próxima: ${dt(status.nextScheduledRun)}` : ''}</span>

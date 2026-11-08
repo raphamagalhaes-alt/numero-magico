@@ -110,6 +110,7 @@ test('ações: DY de dividendos + JCP (B3) no explorador e simulação com médi
   await row.getByRole('button', { name: 'Simular PETR4' }).click();
   await expect(page.getByTestId('ticker')).toHaveValue('PETR4');
   await expect(page.getByTestId('status-badge')).toContainText('PETR4');
+  await expect(page.getByTestId('status-badge')).toContainText('média mensal de proventos 12m');
   await expect(page.getByTestId('in-dividend')).toHaveValue('0,20'); // 2,40/12
   await expect(page.getByTestId('market-panel')).toContainText('média mensal de 3 proventos');
 });

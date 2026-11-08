@@ -124,7 +124,8 @@ export function SimulatorPage({ requestedTicker }: { requestedTicker?: string | 
     }));
     const session = s.lastTrade.sessionDate ?? s.lastTrade.tradedAt.slice(0, 10);
     const [y, m, d] = session.split('-');
-    const label = `${s.ticker} · ${s.lastTrade.kind === 'fechamento' ? 'fechamento' : 'preço'} de ${d}/${m}/${y} · rendimento ${div.kind}`;
+    const divLabel = div.event.estimated === 'cvm' ? 'rendimento estimado (CVM)' : div.event.estimated === 'media12m' ? 'média mensal de proventos 12m' : `rendimento ${div.kind}`;
+    const label = `${s.ticker} · ${s.lastTrade.kind === 'fechamento' ? 'fechamento' : 'preço'} de ${d}/${m}/${y} · ${divLabel}`;
     setPrefs((p) => ({ ...p, status: 'market', mode: 'market', marketLabel: label }));
   }, []);
 

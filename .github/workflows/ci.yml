@@ -24,6 +24,9 @@ jobs:
       - run: npm run test:e2e
         env:
           CI: 'true'
+      - run: npm run test:web
+        env:
+          CI: 'true'
   live-sources:
     # verificação diária das fontes oficiais (B3 + Fundos.NET); não bloqueia o build
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

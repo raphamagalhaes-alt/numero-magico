@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FileUp, Scale } from 'lucide-react';
-import { useRemote } from '../data';
+import { invalidateData, useRemote } from '../data';
+import { IS_WEB } from '../mode';
 
 interface Compliance { b3Authorized: boolean; b3PublicBlock: boolean; importDir: string; automatedQuotes: boolean }
 const B3_PAGE = 'https://www.b3.com.br/pt_br/market-data-e-indices/servicos-de-dados/market-data/historico/mercado-a-vista/cotacoes-historicas/';
@@ -25,6 +26,7 @@ export function ImportQuotes({ onImported }: { onImported?: () => void }) {
     }
     setMsg({ ok, text: results.join(' · ') });
     setBusy(false);
+    invalidateData();
     onImported?.();
   };
   return (
@@ -34,7 +36,9 @@ export function ImportQuotes({ onImported }: { onImported?: () => void }) {
         <p>A B3 permite o uso dos dados do seu site <strong>exclusivamente para uso pessoal</strong> e <strong>proíbe a coleta automatizada</strong> da página de Cotações Históricas "para quaisquer finalidades, comerciais ou não". Publicar cotações para terceiros exige <strong>autorização prévia e por escrito</strong> (contrato de distribuição de market data). Por isso este app não baixa as cotações sozinho: você baixa o arquivo no site da B3 e o app faz todo o resto.</p>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-mist-400">
           <li>Abra a página <a className="underline hover:text-gold-300" href={B3_PAGE} target="_blank" rel="noreferrer noopener">Cotações Históricas da B3</a> e baixe o arquivo do último pregão (diário), do mês ou do ano.</li>
-          <li>Envie aqui (ou coloque na pasta <code className="text-mist-200">{c.data?.importDir ?? 'server/data/import'}</code>). O app processa às 9h e 21h30 e a cada envio.</li>
+          {IS_WEB
+            ? <li>Envie aqui. O arquivo é lido <strong>dentro do seu navegador</strong>: nada é enviado a servidores. Dica: no celular, prefira o arquivo diário ou mensal (o anual é grande).</li>
+            : <li>Envie aqui (ou coloque na pasta <code className="text-mist-200">{c.data?.importDir ?? 'server/data/import'}</code>). O app processa às 9h e 21h30 e a cada envio.</li>}
         </ol>
       </div>
       {c.data?.automatedQuotes && <p className="text-xs text-gain-400">Download automático habilitado (B3_MARKET_DATA_AUTHORIZED=1: o operador declarou ter autorização da B3).</p>}
