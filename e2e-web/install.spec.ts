@@ -7,7 +7,6 @@ test.describe('app instalável (PWA) e isolado no navegador', () => {
     await page.addInitScript(() => localStorage.setItem('mxrf:onboarded', 'true'));
     await page.goto('./#/simulador');
     await expect(page.getByTestId('magic-shares')).toHaveText('178');
-    await page.waitForFunction(() => navigator.serviceWorker?.controller !== null || navigator.serviceWorker?.ready, null, { timeout: 15000 });
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload(); // passa a ser controlada pelo service worker
     await expect(page.getByTestId('magic-shares')).toHaveText('178');
