@@ -212,7 +212,7 @@ export function MarketsPage() {
         </ol>
       </details>
 
-      <p className="text-[11px] text-mist-500">Lista objetiva das maiores e mais negociadas empresas e fundos — não é recomendação de compra ou venda. Tipos: {Object.values(KIND_LABEL).join(', ')}. Cotações: brapi.dev, com a sua chave pessoal, consultadas direto deste aparelho. Rentabilidade passada não garante resultado futuro.</p>
+      <p className="text-[11px] text-mist-500">Lista objetiva das maiores e mais negociadas empresas e fundos — não é recomendação de compra ou venda. Tipos: {Object.values(KIND_LABEL).join(', ')}. Cotações: brapi.dev (fontes públicas, sem vínculo com a B3, com atraso e sem garantia), com a sua chave pessoal, consultadas direto deste aparelho e guardadas só nele. Rentabilidade passada não garante resultado futuro.</p>
     </section>
   );
 }

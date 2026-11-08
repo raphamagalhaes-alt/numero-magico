@@ -20,7 +20,7 @@ visível apenas porque a hospedagem gratuita (GitHub Pages) exige repositório p
 | Federal Reserve Bank of New York | Termos de uso do Fed NY, com atribuição. |
 | Banco Central Europeu | "Source: ECB statistics." Valores sem alteração. |
 | B3 (COTAHIST, Fundos.NET) | **Nenhum dado da B3 é armazenado ou redistribuído pelo site ou por este repositório.** O usuário importa o próprio arquivo, para uso pessoal, que fica só no aparelho dele. Ver `docs/LICENCA-B3.md`. |
-| brapi.dev | Opcional, com a chave **pessoal** de cada usuário, chamada direto do aparelho dele. |
+| brapi.dev | Opcional, com a chave **pessoal** de cada usuário, chamada direto do aparelho dele (chave no cabeçalho, nunca no código publicado). Confirmado pelo suporte da brapi (08/11/2026): é permitido exibir os dados aos usuários do app, fazer cache, séries históricas, gráficos e indicadores derivados; é proibido entregar os dados a terceiros como feed/API/base bruta ou usar a brapi como proxy/espelho público. A brapi não é distribuidora da B3 e informa usar fontes abertas; não há SLA nem contrato. |
 
 Arquivos em `server/fixtures/` são **sintéticos ou anonimizados** (sem dados pessoais e sem cotações
 reais da B3), usados apenas em testes automatizados.

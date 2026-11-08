@@ -62,6 +62,16 @@ Os documentos abaixo foram lidos diretamente nos sites da B3 em 08/11/2026. Isto
 1. **Cada pessoa instala o app no próprio computador.** Nada é hospedado nem redistribuído pelo projeto.
 2. **Cotações da B3:** cada usuário baixa o arquivo no site da B3, o que é consulta humana e uso pessoal, permitidos pelos Termos de Uso. O app só processa o arquivo, sem coleta automatizada.
 3. **Cotações automáticas:** cada usuário usa a **própria** chave gratuita da brapi, a partir do próprio computador. Os [Termos de Uso da brapi](https://brapi.dev/terms-of-use), atualizados em 07/06/2025, concedem licença "limitada, não exclusiva, intransferível" e vedam "revender, redistribuir ou sublicenciar os Dados" e "criar um serviço de proxy, espelho [...] de acesso público". O modelo respeita os dois pontos: a chave não é compartilhada e não há proxy.
+
+   **Resposta do suporte da brapi (08/11/2026)**, recebida pelo responsável do projeto: dentro do
+   produto, a licença permite exibir os dados aos usuários do app, fazer cache e persistência, montar
+   séries históricas, gráficos, tabelas e indicadores derivados (e até cobrar pelas funcionalidades).
+   Não é permitido entregar os dados a terceiros como feed, API ou base bruta, nem usar a brapi como
+   proxy, espelho ou wrapper de um serviço concorrente ou de acesso público. A brapi **não** é
+   distribuidora licenciada da B3 e informa que **não usa dados da B3**: os dados vêm de fontes
+   abertas e públicas (documentos da CVM, séries do Banco Central etc.). Não há SLA nem contrato
+   assinado. Como o site não guarda nem repassa nada (cada pessoa usa a própria chave, no próprio
+   aparelho), o uso está dentro do permitido.
 4. **Celular:** é o próprio usuário acessando o próprio computador na rede de casa, com senha.
 
 Se um dia o app for oferecido a terceiros, comercialmente ou não, será preciso o contrato de distribuição com a B3, ou um distribuidor licenciado, e um plano da brapi (ou de outro fornecedor) que permita uso em produto.

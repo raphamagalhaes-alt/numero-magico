@@ -13,7 +13,7 @@ export const SOURCES: { name: string; use: string; license: string; url: string 
   { name: 'Banco Central Europeu (BCE)', use: 'Taxa de depósito (DFR)', license: 'Reutilização livre com citação "Source: ECB statistics."; valores não alterados', url: 'https://data.ecb.europa.eu/' },
   { name: 'B3 — Cotações Históricas (COTAHIST)', use: 'Somente no seu aparelho: o arquivo é baixado por você no site da B3 e lido localmente', license: 'Termos de Uso da B3: uso exclusivamente pessoal; este site não coleta, armazena nem redistribui dados da B3', url: 'https://www.b3.com.br/pt_br/market-data-e-indices/servicos-de-dados/market-data/historico/mercado-a-vista/cotacoes-historicas/' },
   { name: 'B3/CVM — Fundos.NET (versão instalável)', use: 'Rendimentos anunciados por FIIs, consultados pelo seu próprio computador', license: 'Documentos públicos de divulgação obrigatória; uso pessoal', url: 'https://fnet.bmfbovespa.com.br/' },
-  { name: 'brapi.dev (opcional)', use: 'Cotações com a SUA chave pessoal, consultadas direto do seu aparelho', license: 'Termos da brapi: licença pessoal e intransferível — não compartilhe sua chave', url: 'https://brapi.dev/' },
+  { name: 'brapi.dev (opcional)', use: 'Cotações com a SUA chave pessoal, consultadas direto do seu aparelho', license: 'Termos da brapi: permite exibir, guardar em cache e calcular indicadores dentro do app; proíbe repassar os dados a terceiros (feed, API, base bruta) ou servir de proxy público. Dados de fontes públicas, sem vínculo com a B3 e sem garantia/SLA. Não compartilhe sua chave', url: 'https://brapi.dev/' },
 ];
 
 /** Apaga tudo o que o app guardou neste aparelho (preferências, carteira, chave da brapi, cotações importadas). */
