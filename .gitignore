@@ -7,3 +7,5 @@ server/data/market-store.json
 server/data/holidays-learned.json
 release/
 server/data/cache/
+build/
+release-desktop/

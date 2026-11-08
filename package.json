@@ -18,13 +18,18 @@
     "start": "npm run build && tsx server/index.ts",
     "lint": "eslint .",
     "ci": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e",
-    "data:update": "tsx scripts/update-data.ts"
+    "data:update": "tsx scripts/update-data.ts",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=build/server.mjs",
+    "build:desktop": "npm run build && npm run build:server",
+    "desktop": "npm run build:desktop && electron .",
+    "dist:desktop": "npm run build:desktop && electron-builder --publish never"
   },
   "dependencies": {
     "decimal.js": "10.6.0",
     "fflate": "^0.8.3",
     "lucide-react": "0.460.0",
     "node-cron": "^4.2.1",
+    "qrcode": "^1.5.4",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "recharts": "2.15.1",
@@ -35,12 +40,15 @@
     "@eslint/js": "^9.17.0",
     "@playwright/test": "1.63.0",
     "@types/node": "22.10.2",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
     "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "4.3.4",
     "autoprefixer": "10.4.20",
     "concurrently": "9.1.0",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "eslint": "^9.17.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "globals": "^15.14.0",
@@ -55,5 +63,81 @@
   },
   "engines": {
     "node": ">=22.12"
+  },
+  "main": "electron/main.cjs",
+  "productName": "Número Mágico",
+  "author": "Número Mágico",
+  "build": {
+    "appId": "br.numeromagico.app",
+    "productName": "Número Mágico",
+    "directories": {
+      "output": "release-desktop",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "electron/main.cjs",
+      "build/server.mjs",
+      "dist/**",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build-resources/icon.png",
+      "signAndEditExecutable": false,
+      "artifactName": "NumeroMagico-${version}-windows-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Número Mágico",
+      "artifactName": "NumeroMagico-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.finance",
+      "icon": "build-resources/icon.png",
+      "artifactName": "NumeroMagico-${version}-mac-${arch}.${ext}",
+      "identity": null
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Finance",
+      "icon": "build-resources/icon.png",
+      "artifactName": "NumeroMagico-${version}.${ext}"
+    },
+    "publish": null,
+    "executableName": "NumeroMagico",
+    "afterPack": "electron/after-pack.cjs"
   }
 }

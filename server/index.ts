@@ -14,6 +14,8 @@ import { learnHolidays, loadExtraHolidays } from './calendar';
 import { createFetch } from './http';
 import { ASSETS } from '../src/assets/registry';
 import { D } from '../src/engine/decimal';
+import { SettingsStore } from './settings';
+import { timingSafeEqual } from 'node:crypto';
 import { DataHub } from './hub';
 import { EVENING_CRON } from './scheduler';
 import { AlertService, alertsPath, collectEvents, parseTickers, toIcs, toRss } from './alerts';
@@ -33,9 +35,16 @@ const DATA_DIR = process.env.DATA_DIR ?? join(here, 'data', 'cache');
 const B3_AUTHORIZED = process.env.B3_MARKET_DATA_AUTHORIZED === '1';
 /** Exposição pública sem autorização: dados da B3 não são servidos (Termos de Uso: uso exclusivamente pessoal). */
 const LOOPBACK = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '::1';
-const B3_PUBLIC_BLOCK = !LOOPBACK && !B3_AUTHORIZED && process.env.B3_PERSONAL_USE_ACK !== '1';
+/**
+ * Acesso pelo celular na rede de casa (uso pessoal do mesmo usuário): exige ACCESS_TOKEN em toda
+ * requisição que não venha do próprio computador. Sem token, o servidor só aceita acesso local.
+ */
+const ACCESS_TOKEN = process.env.ACCESS_TOKEN && process.env.ACCESS_TOKEN.length >= 16 ? process.env.ACCESS_TOKEN : null;
+const B3_PUBLIC_BLOCK = !LOOPBACK && !B3_AUTHORIZED && process.env.B3_PERSONAL_USE_ACK !== '1' && !ACCESS_TOKEN;
+const settings = new SettingsStore(join(DATA_DIR, 'settings.json'));
 const hub = new DataHub({
   dir: DATA_DIR,
+  personalQuotes: () => ({ token: process.env.BRAPI_TOKEN ?? settings.s.brapiToken, tickers: settings.s.watchlist }),
   b3AutomatedDownload: B3_AUTHORIZED,
   importDir: process.env.IMPORT_DIR ?? join(here, 'data', 'import'),
   fetchImpl: createFetch(),
@@ -60,7 +69,8 @@ const provider: MarketDataProvider =
       localTrade: (t) => {
         const pts = hub.history.points(t);
         const p = pts[pts.length - 1];
-        return p ? { price: p.close.toFixed(2), sessionDate: p.date, tradedAt: `${p.date}T18:00:00-03:00`, kind: 'fechamento', source: 'B3 — arquivo COTAHIST importado pelo usuário (fechamento do pregão)' } : null;
+        const src = hub.quoteSourceOf(t);
+        return p ? { price: p.close.toFixed(2), sessionDate: p.date, tradedAt: `${p.date}T18:00:00-03:00`, kind: 'fechamento', source: src?.date === p.date ? `Fechamento via ${src.source}` : 'B3 — arquivo COTAHIST importado pelo usuário (fechamento do pregão)' } : null;
       },
       onMissingSessions: (d) => {
         const c = learnHolidays(LEARNED, d);
@@ -126,7 +136,7 @@ function json(res: ServerResponse, code: number, body: unknown, headers: Record<
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.svg': 'image/svg+xml', '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8',
+  '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8',
 };
 function serveStatic(pathname: string, res: ServerResponse, head: boolean): boolean {
   if (!existsSync(DIST)) return false;
@@ -146,9 +156,50 @@ function serveStatic(pathname: string, res: ServerResponse, head: boolean): bool
   return true;
 }
 
+const isLocal = (req: IncomingMessage) => { const r = req.socket.remoteAddress ?? ''; return r === '127.0.0.1' || r === '::1' || r === '::ffff:127.0.0.1'; };
+const safeEq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+function hasAccess(req: IncomingMessage, url: URL): boolean {
+  if (isLocal(req)) return true;
+  if (!ACCESS_TOKEN) return LOOPBACK ? false : true; // servidor público: as regras de dados abaixo se aplicam
+  const cookie = /(?:^|;\s*)nm_access=([^;]+)/.exec(req.headers.cookie ?? '')?.[1] ?? '';
+  const q = url.searchParams.get('acesso') ?? '';
+  return safeEq(cookie, ACCESS_TOKEN) || safeEq(q, ACCESS_TOKEN);
+}
+
+async function readJson(req: IncomingMessage, max = 20000): Promise<unknown> {
+  let raw = '';
+  for await (const c of req) { raw += c; if (raw.length > max) throw new Error('Corpo grande demais'); }
+  return JSON.parse(raw);
+}
+
 async function handle(req: IncomingMessage, res: ServerResponse) {
   let url: URL;
   try { url = new URL(req.url ?? '/', 'http://localhost'); } catch { return json(res, 400, { error: 'Requisição inválida' }); }
+  if (ACCESS_TOKEN && !isLocal(req)) {
+    if (!hasAccess(req, url)) return json(res, 401, { error: 'Acesso restrito: abra o link com a senha de acesso exibida no app do computador.' });
+    if (url.searchParams.get('acesso')) { // grava cookie e remove a senha da URL
+      res.writeHead(302, { Location: url.pathname === '/' ? '/' : url.pathname, 'Set-Cookie': `nm_access=${ACCESS_TOKEN}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000`, ...SECURITY_HEADERS });
+      return res.end();
+    }
+  }
+  if (url.pathname === '/api/settings') {
+    if (!isLocal(req) && !ACCESS_TOKEN) return json(res, 403, { error: 'Configurações só no próprio computador.' });
+    if (req.method === 'POST') {
+      if (req.headers['x-requested-with'] !== 'mxrf11') return json(res, 403, { error: 'Requisição não autorizada' });
+      let body: { brapiToken?: string | null; watchlist?: unknown };
+      try { body = (await readJson(req)) as typeof body; } catch { return json(res, 400, { error: 'JSON inválido' }); }
+      // a chave brapi só pode ser definida no próprio computador (nunca pela rede)
+      if (body.brapiToken !== undefined && !isLocal(req)) return json(res, 403, { error: 'Defina a chave brapi no computador.' });
+      settings.update(body);
+      if (body.brapiToken) void runHub();
+    }
+    return json(res, 200, settings.public());
+  }
+  if (url.pathname === '/api/import/scan' && req.method === 'POST') {
+    if (!isLocal(req) || req.headers['x-requested-with'] !== 'mxrf11') return json(res, 403, { error: 'Somente local' });
+    void runHub();
+    return json(res, 202, { ok: true });
+  }
   if (url.pathname === '/api/health') return json(res, 200, { ok: true, provider: provider.name, configured: provider.isConfigured() });
   if (url.pathname === '/api/assets') return json(res, 200, tickers.map((t) => ({ ticker: t, name: ASSETS[t].name })));
   if (url.pathname === '/api/alerts/calendar.ics' || url.pathname === '/api/alerts/feed.xml') {
@@ -173,7 +224,13 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   if (url.pathname === '/api/import/cotahist' && req.method === 'POST') return handleImport(req, res);
   if (B3_PUBLIC_BLOCK && /^\/api\/(universe|asset\/|market\/)/.test(url.pathname))
     return json(res, 451, { error: 'Dados da B3 indisponíveis neste servidor público: os Termos de Uso da B3 permitem uso exclusivamente pessoal; a publicação exige autorização prévia e por escrito da B3 (contrato de distribuição de market data).' });
-  if (url.pathname === '/api/universe') return json(res, 200, hub.universe(), { 'Cache-Control': 'public, max-age=300' });
+  if (url.pathname === '/api/universe') {
+    // sem cache temporal: após uma importação o universo muda na hora; ETag evita reenviar o mesmo conteúdo
+    const u = hub.universe();
+    const etag = `"${u.asOf}-${u.sessions}-${u.assets.length}-${u.dividendsCoverageFrom}-${hub.status().map((s) => s.lastSuccess).join('|').length}-${hub.version}"`;
+    if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'no-cache', ...SECURITY_HEADERS }); return res.end(); }
+    return json(res, 200, u, { ETag: etag, 'Cache-Control': 'no-cache' });
+  }
   if (url.pathname === '/api/macro') return json(res, 200, hub.macro() ?? { indicators: [], tesouro: { baseDate: null, bonds: [], source: '', sourceUrl: '' } });
   if (url.pathname === '/api/rates/global') return json(res, 200, hub.global() ?? { rates: [] });
   if (url.pathname === '/api/data/status') return json(res, 200, hub.status());

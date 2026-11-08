@@ -1,6 +1,7 @@
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useDataStatus } from '../data';
 import { ImportQuotes } from '../components/ImportQuotes';
+import { PersonalQuotes } from '../components/PersonalQuotes';
 
 const dt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) : '—');
 
@@ -12,6 +13,7 @@ export function DataStatusPage() {
         <h1 id="ds-title" className="text-xl font-semibold">Status dos dados</h1>
         <p className="text-sm text-mist-400">Fontes abertas (CVM, Banco Central, Tesouro, BIS, Fed, BCE) e avisos de rendimentos são consultados pelo servidor todos os dias às 9h e às 21h30 (Brasília); as cotações da B3 vêm dos arquivos que você importar. Em caso de falha, o último conjunto válido é mantido e o erro aparece aqui.</p>
       </div>
+      <PersonalQuotes />
       <ImportQuotes onImported={s.reload} />
       {s.error && <p className="card p-4 text-sm text-loss-400" role="alert">{s.error}</p>}
       <div className="grid gap-3 md:grid-cols-2" data-testid="data-status">

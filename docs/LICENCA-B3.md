@@ -56,3 +56,12 @@ Os documentos abaixo foram lidos diretamente nos sites da B3 em 08/11/2026. Isto
 - **CVM (DFP/ITR/FRE, licença ODbL):** tem dividendos e JCP contábeis e o número de ações, mas as companhias classificam de forma heterogênea. A Vale, por exemplo, registra os dividendos dentro de "Lucros Retidos" na DVA. Isso impede calcular o provento por ação de forma confiável e automática, e por isso essa fonte não foi usada como dado.
 
 **Caminho para publicar:** solicitar à B3 o contrato de redistribuidor para dados de fim de dia e históricos (item 7.9/7.10, sem custo pelos dados), ou contratar um distribuidor licenciado e usar o provedor `MARKET_PROVIDER=http` do app.
+
+## Modelo adotado: uso pessoal e familiar, sem comercialização
+
+1. **Cada pessoa instala o app no próprio computador.** Nada é hospedado nem redistribuído pelo projeto.
+2. **Cotações da B3:** cada usuário baixa o arquivo no site da B3, o que é consulta humana e uso pessoal, permitidos pelos Termos de Uso. O app só processa o arquivo, sem coleta automatizada.
+3. **Cotações automáticas:** cada usuário usa a **própria** chave gratuita da brapi, a partir do próprio computador. Os [Termos de Uso da brapi](https://brapi.dev/terms-of-use), atualizados em 07/06/2025, concedem licença "limitada, não exclusiva, intransferível" e vedam "revender, redistribuir ou sublicenciar os Dados" e "criar um serviço de proxy, espelho [...] de acesso público". O modelo respeita os dois pontos: a chave não é compartilhada e não há proxy.
+4. **Celular:** é o próprio usuário acessando o próprio computador na rede de casa, com senha.
+
+Se um dia o app for oferecido a terceiros, comercialmente ou não, será preciso o contrato de distribuição com a B3, ou um distribuidor licenciado, e um plano da brapi (ou de outro fornecedor) que permita uso em produto.

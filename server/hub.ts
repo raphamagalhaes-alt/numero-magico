@@ -13,6 +13,8 @@ import { parseCotahistAll } from './sources/cotahist';
 import { HistoryStore } from './sources/history';
 import { pendingImports, readCotahistFile, readImport } from './sources/import';
 import { StockDividendStore, issuerOf, syncStockDividends } from './sources/b3-listed';
+import { fetchBrapiQuotes } from './sources/brapi';
+import { isTradingDay as isSession, saoPauloHour } from '../src/engine/calendar';
 import type { CotahistRecord } from './sources/cotahist';
 import { fetchCvmFii, type FiiInfo } from './sources/cvm-fii';
 import { DividendStore, docLink, syncDividends } from './sources/fnet-all';
@@ -52,6 +54,8 @@ export interface HubOptions {
   b3AutomatedDownload?: boolean;
   /** Pasta onde o usuário coloca os arquivos COTAHIST baixados manualmente. */
   importDir?: string;
+  /** Cotações pessoais com a chave brapi do próprio usuário, para a lista de acompanhamento. */
+  personalQuotes?: () => { token: string | null; tickers: string[] };
 }
 
 export class DataHub {
@@ -60,6 +64,8 @@ export class DataHub {
   readonly stockDivs: StockDividendStore;
   private p: Persisted;
   private universeCache: UniverseResponse | null = null;
+  /** Incrementa a cada mudança de dados (invalida ETags). */
+  version = 0;
   private running: Promise<void> | null = null;
   private readonly now: () => Date;
   private readonly log: (m: string) => void;
@@ -96,6 +102,7 @@ export class DataHub {
       this.log(`${LABELS[key]}: falha — ${st.lastError} (mantidos os últimos dados válidos)`);
     }
     this.universeCache = null;
+    this.version++;
     this.save();
   }
 
@@ -134,6 +141,7 @@ export class DataHub {
     for (const [d, rs] of [...byDate].sort()) this.history.addSession(d, rs);
     this.history.save();
     this.universeCache = null;
+    this.version++;
     return byDate.size;
   }
 
@@ -149,9 +157,49 @@ export class DataHub {
     return this.history.dates[this.history.dates.length - 1] ?? null;
   }
 
+  /**
+   * Fechamentos do dia pela chave brapi do usuário (somente pregões encerrados), para os ativos acompanhados
+   * que já existem no histórico (um COTAHIST importado traz cadastro/ISIN e o histórico de 12 meses).
+   */
+  private async updatePersonalQuotes(): Promise<string | null> {
+    const cfg = this.o.personalQuotes?.();
+    if (!cfg?.token || !cfg.tickers.length) return null;
+    const known = cfg.tickers.filter((t) => this.history.meta(t));
+    if (!known.length) { this.quoteNotes.push('chave brapi configurada, mas nenhum ativo acompanhado está no histórico: importe um COTAHIST (mensal ou anual) uma vez'); return null; }
+    const { quotes, errors } = await fetchBrapiQuotes(this.o.fetchImpl, cfg.token, known, { pauseMs: this.o.pauseMs ?? 400, maxRequests: 60 });
+    const now = this.now();
+    const today = saoPauloDate(now);
+    // só fechamentos de pregão encerrado (dia anterior, ou hoje após 18h30 de Brasília)
+    const closed = quotes.filter((q) => isSession(q.sessionDate) && (q.sessionDate < today || saoPauloHour(now) >= 19));
+    const byDate = new Map<string, typeof closed>();
+    for (const q of closed) (byDate.get(q.sessionDate) ?? byDate.set(q.sessionDate, []).get(q.sessionDate)!).push(q);
+    let updated = 0;
+    for (const [d, qs] of byDate) {
+      const done = this.history.addQuotes(d, qs.map((q) => ({ ticker: q.ticker, close: q.price, volume: q.volume === null ? null : q.volume * q.price })));
+      for (const t of done) this.quoteSource[t] = { source: 'brapi (chave pessoal do usuário)', date: d };
+      updated += done.length;
+    }
+    if (updated) { this.history.save(); this.universeCache = null; }
+    if (errors.length) this.quoteNotes.push(`brapi: ${errors.slice(0, 3).join('; ')}`);
+    this.log(`cotações pessoais (brapi): ${updated} fechamentos atualizados`);
+    return closed.map((q) => q.sessionDate).sort().pop() ?? null;
+  }
+  private quoteNotes: string[] = [];
+  private quoteSource: Record<string, { source: string; date: string }> = {};
+  quoteSourceOf(t: string) { return this.quoteSource[t] ?? null; }
+
   /** Cotações: importação de arquivos baixados manualmente (padrão) ou download autorizado. */
   private async updateQuotes(): Promise<string | null> {
-    if (!this.o.b3AutomatedDownload) return this.importQuotes();
+    this.quoteNotes = [];
+    if (!this.o.b3AutomatedDownload) {
+      let imported: string | null = null;
+      let importErr: unknown = null;
+      try { imported = this.importQuotes(); } catch (e) { importErr = e; }
+      const personal = await this.updatePersonalQuotes().catch((e) => { this.quoteNotes.push(`brapi: ${e instanceof Error ? e.message : e}`); return null; });
+      if (importErr && !personal) throw importErr;
+      if (this.quoteNotes.length) this.log(this.quoteNotes.join(' · '));
+      return [imported, personal].filter(Boolean).sort().pop() ?? null;
+    }
     try { this.importQuotes(); } catch { /* sem arquivos importados: segue com o download autorizado */ }
     const today = saoPauloDate(this.now());
     const months = this.o.historyMonths ?? 13;

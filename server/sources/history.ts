@@ -54,6 +54,28 @@ export class HistoryStore {
     this.trim();
   }
 
+  /**
+   * Fechamentos avulsos (ex.: cotação pessoal via brapi) para ativos JÁ conhecidos por um COTAHIST importado.
+   * Retorna os tickers atualizados.
+   */
+  addQuotes(date: string, quotes: { ticker: string; close: number; volume: number | null }[]): string[] {
+    const known = quotes.filter((q) => this.d.meta[q.ticker] && this.d.close[q.ticker]);
+    if (!known.length) return [];
+    let idx = this.d.dates.indexOf(date);
+    if (idx < 0) {
+      idx = this.d.dates.findIndex((x) => x > date);
+      if (idx < 0) idx = this.d.dates.length;
+      this.d.dates.splice(idx, 0, date);
+      for (const t of Object.keys(this.d.close)) { this.d.close[t].splice(idx, 0, null); this.d.volume[t].splice(idx, 0, null); }
+    }
+    for (const q of known) {
+      this.d.close[q.ticker][idx] = round(q.close, 6);
+      this.d.volume[q.ticker][idx] = q.volume === null ? null : Math.round(q.volume);
+    }
+    this.trim();
+    return known.map((q) => q.ticker);
+  }
+
   private trim() {
     const extra = this.d.dates.length - this.maxSessions;
     if (extra <= 0) return;

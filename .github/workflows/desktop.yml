@@ -1,0 +1,39 @@
+name: Instaladores desktop
+# Gera os instaladores do app em cada sistema (Windows .exe, macOS .dmg, Linux AppImage).
+# Rode manualmente em Actions → "Instaladores desktop" → Run workflow; baixe em "Artifacts".
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: --win nsis zip --x64
+          - os: macos-latest
+            args: --mac dmg zip --arm64 --x64
+          - os: ubuntu-latest
+            args: --linux AppImage
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:desktop
+      - run: npx electron-builder ${{ matrix.args }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: numero-magico-${{ runner.os }}
+          path: |
+            release-desktop/*.exe
+            release-desktop/*.dmg
+            release-desktop/*.zip
+            release-desktop/*.AppImage
+          if-no-files-found: error

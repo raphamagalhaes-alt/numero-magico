@@ -19,6 +19,25 @@ Plataforma educativa com **dados oficiais atualizados diariamente**. Tem seis p�
 
 O MXRF11 continua como exemplo didático padrão (modo Demonstração).
 
+## App desktop (Windows, Mac, Linux) e celular
+
+O guia para usuários está em [`docs/INSTALAR.md`](docs/INSTALAR.md). Em resumo:
+
+| Item | Detalhe |
+|---|---|
+| App desktop | Electron (`electron/main.cjs`). O servidor roda **dentro do app, no computador do usuário**. Nenhum dado de mercado passa por servidores do projeto. |
+| Desenvolvimento | `npm run desktop` abre o app. |
+| Pacotes | `npm run dist:desktop` gera os pacotes em `release-desktop/`. |
+| Instaladores `.exe`, `.dmg` e AppImage | Workflow do GitHub *Instaladores desktop*. No macOS, a assinatura ad-hoc gratuita é aplicada no `afterPack`. |
+| Cotações sem coleta automatizada da B3 | O app observa a pasta **Downloads** e importa os arquivos COTAHIST que o usuário baixar. Às 20h45 dos pregões há um lembrete com link para a página da B3. |
+| Cotações automáticas regulares | Chave **pessoal** e gratuita da brapi de cada usuário, chamada do próprio computador, só para a lista de acompanhamento: carteira, comparações e simulador, até 60 ativos por atualização. |
+| Celular | Menu *Celular* → QR code. O servidor do computador passa a aceitar a rede local, com senha obrigatória (`ACCESS_TOKEN`), e o celular adiciona o app à tela inicial (PWA com manifesto e ícones). |
+
+**Testado aqui:**
+- o app empacotado foi aberto numa tela virtual (Xvfb + Playwright);
+- a importação automática a partir da pasta Downloads funcionou;
+- o acesso pela rede foi testado com e sem senha.
+
 ## Instalação e execução
 
 Requisitos: Node.js 22.12+ (`.nvmrc`).

@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { getCompareList } from './pages/Explorer';
+import { loadRaw as loadRawPref } from './storage';
 import { BarChart3, Bell } from 'lucide-react';
 import { SimulatorPage } from './App';
 import { ExplorerPage } from './pages/Explorer';
@@ -19,6 +21,17 @@ export function Shell() {
   const u = useUniverse();
   // recalculado a cada renderização (barato): reflete "marcar como visto" ao voltar da carteira
   const alerts = u.data ? newDividendAlerts(loadPositions(), u.data.assets) : [];
+
+  // lista de acompanhamento (carteira + comparação + simulador) enviada ao servidor LOCAL para as cotações pessoais
+  useEffect(() => {
+    const sim = loadRawPref<{ ticker?: string }>('mxrf:prefs', {}).ticker;
+    const list = [...new Set([...loadPositions().map((p) => p.ticker), ...getCompareList(), ...(sim ? [sim] : [])])].sort();
+    const key = list.join(',');
+    if (key === loadRawPref('mxrf:watchlistSent', '')) return;
+    fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'mxrf11' }, body: JSON.stringify({ watchlist: list }) })
+      .then((r) => { if (r.ok) { try { localStorage.setItem('mxrf:watchlistSent', JSON.stringify(key)); } catch { /* ignore */ } } })
+      .catch(() => undefined);
+  }, [route.page, route.params]);
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 px-4 pb-10 sm:px-6">
