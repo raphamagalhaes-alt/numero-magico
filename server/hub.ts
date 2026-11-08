@@ -218,7 +218,7 @@ export class DataHub {
     }
     if (!byIssuer.size) throw new Error('sem ações no histórico de cotações (importe arquivos COTAHIST primeiro)');
     const r = await syncStockDividends(this.stockDivs, this.o.fetchImpl, [...byIssuer].map(([code, s]) => ({ code, isins: [...s] })), { pauseMs: this.o.pauseMs ?? 300, log: this.log });
-    this.log(`proventos de ações: ${r.ok} emissores atualizados, ${r.failed} falhas`);
+    this.log(`proventos de ações: ${r.ok} emissores atualizados, ${r.events} eventos, ${r.failed} falhas`);
     return saoPauloDate(this.now());
   }
 

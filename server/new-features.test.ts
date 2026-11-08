@@ -25,6 +25,8 @@ describe('dividendos de ações (B3 — Empresas Listadas)', () => {
     expect(ev[0]).toMatchObject({ isin: 'BRPETRACNPR6', amount: 0.47, recordDate: '2026-08-21', paymentDate: '2026-12-21', kind: 'DIVIDENDO' });
     expect(ev[1].kind).toBe('JCP');
     expect(ev[2].paymentDate).toBeNull();
+    expect(parseListedCash(JSON.stringify(listed('BRPETRACNPR6')))).toHaveLength(3); // JSON duplamente codificado
+    expect(parseListedCash('não é json')).toEqual([]);
     expect(issuerOf('PETR4')).toBe('PETR');
     expect(issuerOf('MXRF11')).toBe('MXRF');
     expect(B3_LISTED_URL('PETR')).toContain(Buffer.from('{"issuingCompany":"PETR","language":"pt-br"}').toString('base64'));
@@ -33,9 +35,18 @@ describe('dividendos de ações (B3 — Empresas Listadas)', () => {
     const store = new StockDividendStore(join(tmp(), 's.json'));
     const fake = (async (u: string) => (u === B3_LISTED_URL('PETR') ? Response.json(listed('BRPETRACNPR6')) : new Response('x', { status: 500 }))) as unknown as typeof fetch;
     const r = await syncStockDividends(store, fake, [{ code: 'PETR', isins: ['BRPETRACNPR6'] }, { code: 'XXXX', isins: ['BRXXXXACNOR0'] }], { pauseMs: 0 });
-    expect(r).toEqual({ ok: 1, failed: 1 });
+    expect(r).toEqual({ ok: 1, failed: 1, events: 2 });
     expect(store.get('BRPETRACNPR6')).toHaveLength(2);
     expect(store.get('BRPETRACNOR9')).toHaveLength(0); // classe não pedida
+  });
+});
+
+describe('proventos de ações: falha silenciosa vira erro visível', () => {
+  it('centenas de emissores sem nenhum evento reconhecido → erro', async () => {
+    const store = new StockDividendStore(join(tmp(), 's.json'));
+    const fake = (async () => new Response(JSON.stringify([{ cashDividends: [] }]))) as unknown as typeof fetch;
+    const issuers = Array.from({ length: 25 }, (_, i) => ({ code: `X${String(i).padStart(3, '0')}`, isins: [] }));
+    await expect(syncStockDividends(store, fake, issuers, { pauseMs: 0 })).rejects.toThrow(/mudança no formato/);
   });
 });
 

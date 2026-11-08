@@ -18,7 +18,10 @@ const kindOf = (label: string): CashKind => (/JRS|JUROS/i.test(label) ? 'JCP' : 
 const date = (s: unknown) => { const d = brDate(String(s ?? '').trim()); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null; };
 
 export function parseListedCash(json: unknown): CashEvent[] {
-  const root = Array.isArray(json) ? json[0] : null;
+  // com "Accept: application/json" a B3 responde o JSON codificado duas vezes (uma string JSON)
+  let v = json;
+  for (let i = 0; i < 2 && typeof v === 'string'; i++) { try { v = JSON.parse(v); } catch { return []; } }
+  const root = Array.isArray(v) ? v[0] : null;
   const list = root && Array.isArray(root.cashDividends) ? root.cashDividends : [];
   const out: CashEvent[] = [];
   for (const r of list as Record<string, unknown>[]) {
@@ -53,14 +56,18 @@ export class StockDividendStore {
 /** Emissor (4 letras) a partir do ticker de ação: PETR4 → PETR. */
 export const issuerOf = (ticker: string) => (/^[A-Z0-9]{4}\d{1,2}$/.test(ticker) ? ticker.slice(0, 4) : null);
 
-export async function syncStockDividends(store: StockDividendStore, fetchImpl: typeof fetch, issuers: { code: string; isins: string[] }[], opts: { pauseMs?: number; log?: (m: string) => void } = {}): Promise<{ ok: number; failed: number }> {
-  let ok = 0, failed = 0;
+export async function syncStockDividends(store: StockDividendStore, fetchImpl: typeof fetch, issuers: { code: string; isins: string[] }[], opts: { pauseMs?: number; log?: (m: string) => void } = {}): Promise<{ ok: number; failed: number; events: number }> {
+  let ok = 0, failed = 0, events = 0;
   for (const [i, iss] of issuers.entries()) {
     if (i) await new Promise((r) => setTimeout(r, opts.pauseMs ?? 300));
     try {
-      const res = await fetchImpl(B3_LISTED_URL(iss.code), { headers: { Accept: 'application/json' } });
+      const res = await fetchImpl(B3_LISTED_URL(iss.code));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const ev = parseListedCash(await res.json()).filter((e) => iss.isins.includes(e.isin));
+      const text = await res.text();
+      let body: unknown;
+      try { body = JSON.parse(text); } catch { throw new Error('resposta não é JSON'); }
+      const ev = parseListedCash(body).filter((e) => iss.isins.includes(e.isin));
+      events += ev.length;
       store.set(ev, iss.isins);
       ok++;
     } catch (e) {
@@ -72,5 +79,7 @@ export async function syncStockDividends(store: StockDividendStore, fetchImpl: t
   store.d.updatedAt = new Date().toISOString();
   store.save();
   if (!ok && failed) throw new Error(`nenhum emissor atualizado (${failed} falhas)`);
-  return { ok, failed };
+  // nenhum evento em centenas de emissores indica mudança de formato na fonte: falha visível, não "sucesso"
+  if (issuers.length >= 20 && events === 0) throw new Error('nenhum provento reconhecido — possível mudança no formato da fonte');
+  return { ok, failed, events };
 }
