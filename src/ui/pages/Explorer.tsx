@@ -89,7 +89,8 @@ export function ExplorerPage() {
       </div>
       {u.loading && <p className="card p-4 text-sm text-mist-400" role="status">Carregando o universo de ativos…</p>}
       {u.error && <p className="card p-4 text-sm text-loss-400" role="alert">{u.error}</p>}
-      {u.data && (
+      {u.data && u.data.assets.length === 0 && <NoQuotesGuide />}
+      {u.data && u.data.assets.length > 0 && (
         <>
           <p className="text-xs text-mist-500" data-testid="universe-meta">
             {u.data.assets.length} ativos · último pregão {u.data.asOf?.split('-').reverse().join('/')} · histórico desde {u.data.historyFrom?.split('-').reverse().join('/')} ({u.data.sessions} pregões)
@@ -163,5 +164,22 @@ export function ExplorerPage() {
         </>
       )}
     </section>
+  );
+}
+
+/** Mostrado enquanto este aparelho ainda não tem cotações: diz exatamente o que fazer. */
+export function NoQuotesGuide() {
+  return (
+    <div className="card flex flex-col gap-3 p-5 ring-gold-500/30" data-testid="no-quotes">
+      <h2 className="text-base font-semibold">Ainda não há preços neste aparelho</h2>
+      <p className="text-sm text-mist-300">Para ver ações, fundos e ETFs com preço atualizado, faça <b>uma vez</b> a configuração das cotações. Leva cerca de 2 minutos e é gratuito.</p>
+      <ol className="list-decimal pl-5 text-sm text-mist-300">
+        <li>Toque em <b>Configurar cotações</b>.</li>
+        <li>Siga os passos da tela (criar uma chave gratuita ou enviar o arquivo da B3).</li>
+        <li>Volte aqui: a lista aparece sozinha.</li>
+      </ol>
+      <button type="button" className="btn btn-gold self-start" onClick={() => go('dados')} data-testid="go-quotes">Configurar cotações</button>
+      <p className="text-xs text-mist-500">Enquanto isso, o <button type="button" className="underline" onClick={() => go('simulador')}>Simular</button> e a <button type="button" className="underline" onClick={() => go('juros')}>Renda fixa</button> já funcionam sem configurar nada.</p>
+    </div>
   );
 }

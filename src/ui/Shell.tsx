@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getCompareList } from './pages/Explorer';
 import { loadRaw as loadRawPref } from './storage';
-import { BarChart3, Bell } from 'lucide-react';
+import { BarChart3, Bell, Calculator, Search, GitCompare, Landmark, Wallet, RefreshCw, type LucideIcon } from 'lucide-react';
 import { SimulatorPage } from './App';
 import { ExplorerPage } from './pages/Explorer';
 import { ComparePage } from './pages/Compare';
@@ -17,6 +17,8 @@ import { useUniverse } from './data';
 import { loadRaw } from './storage';
 import { IS_WEB } from './mode';
 import { InstallApp } from './components/InstallApp';
+
+const ICONS: Record<string, LucideIcon> = { simulador: Calculator, explorar: Search, comparar: GitCompare, juros: Landmark, carteira: Wallet, dados: RefreshCw };
 
 export function Shell() {
   const route = useRoute();
@@ -41,18 +43,18 @@ export function Shell() {
   }, [route.page, route.params]);
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 px-4 pb-10 sm:px-6">
+    <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 px-4 pb-24 sm:px-6 sm:pb-10">
       <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-gold-500 focus:px-3 focus:py-2 focus:text-ink-950">Pular para o conteúdo</a>
       <header className="no-print z-40 -mx-4 flex flex-wrap items-center justify-between gap-3 border-b border-white/5 bg-ink-950/85 px-4 py-3 backdrop-blur sm:sticky sm:top-0 sm:-mx-6 sm:px-6">
         <a href="#/simulador" className="flex items-center gap-3" aria-label="Número Mágico — início">
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950" aria-hidden><BarChart3 size={18} /></span>
           <span>
             <span className="block text-base font-semibold tracking-tight sm:text-lg">Número Mágico</span>
-            <span className="block text-[11px] text-mist-500">Simulador e explorador de investimentos · dados oficiais{IS_WEB ? ' · versão site' : ''}</span>
+            <span className="block text-[11px] text-mist-500">Planeje sua renda com investimentos</span>
           </span>
         </a>
         {IS_WEB && <InstallApp />}
-        <nav aria-label="Páginas" className="-mx-1 flex max-w-full gap-1 overflow-x-auto text-xs">
+        <nav aria-label="Páginas" className="-mx-1 hidden max-w-full gap-1 overflow-x-auto text-xs sm:flex">
           {PAGES.map((p) => (
             <a key={p.id} href={`#/${p.id}`} aria-current={route.page === p.id ? 'page' : undefined}
               className={`whitespace-nowrap rounded-md px-2.5 py-1.5 transition ${route.page === p.id ? 'bg-ink-700 text-gold-300' : 'text-mist-300 hover:text-mist-100'}`}>
@@ -61,6 +63,19 @@ export function Shell() {
           ))}
         </nav>
       </header>
+
+      <nav aria-label="Menu" data-testid="bottom-nav" className="no-print fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-white/10 bg-ink-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
+        {PAGES.map((p) => {
+          const Icon = ICONS[p.id] ?? Calculator;
+          const on = route.page === p.id;
+          return (
+            <a key={p.id} href={`#/${p.id}`} aria-current={on ? 'page' : undefined} className={`relative flex flex-col items-center gap-0.5 py-2 text-[10px] ${on ? 'text-gold-300' : 'text-mist-400'}`}>
+              <Icon size={20} aria-hidden />{p.label}
+              {p.id === 'carteira' && alerts.length > 0 && <span className="absolute right-3 top-1.5 h-2 w-2 rounded-full bg-gold-400" aria-label="novos rendimentos" />}
+            </a>
+          );
+        })}
+      </nav>
 
       {alerts.length > 0 && route.page !== 'carteira' && (
         <button type="button" className="no-print card flex items-center gap-2 p-3 text-left text-xs text-gold-300 ring-gold-500/40" onClick={() => go('carteira')} data-testid="alert-banner">

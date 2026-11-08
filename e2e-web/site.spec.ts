@@ -25,6 +25,15 @@ test('site: dados abertos funcionam sem cotações e sem falar com a B3', async 
   await page.goto('./#/dados');
   await expect(page.getByTestId('web-mode-note')).toContainText('Modo site');
   await expect(page.getByTestId('data-status')).toContainText('Nenhuma cotação ainda');
+  await expect(page.getByTestId('quotes-howto')).toContainText('Jeito fácil');
+  // sem cotações, o Explorar explica o que fazer em vez de mostrar "0 resultados"
+  await page.goto('./#/explorar');
+  await expect(page.getByTestId('no-quotes')).toBeVisible();
+  await page.getByTestId('go-quotes').click();
+  await expect(page.getByTestId('quotes-howto')).toBeVisible();
+  // no celular o menu fica na barra inferior
+  const vw = page.viewportSize()?.width ?? 1280;
+  await expect(page.getByTestId('bottom-nav')).toBeVisible({ visible: vw < 640 });
   expect(ext.filter((h) => B3.test(h))).toEqual([]);
 });
 

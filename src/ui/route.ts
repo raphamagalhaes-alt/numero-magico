@@ -3,12 +3,12 @@ import { useEffect, useState } from 'react';
 
 export type Page = 'simulador' | 'explorar' | 'comparar' | 'juros' | 'carteira' | 'dados' | 'termos';
 export const PAGES: { id: Page; label: string }[] = [
-  { id: 'simulador', label: 'Simulador' },
-  { id: 'explorar', label: 'Explorar ativos' },
+  { id: 'simulador', label: 'Simular' },
+  { id: 'explorar', label: 'Explorar' },
   { id: 'comparar', label: 'Comparar' },
-  { id: 'juros', label: 'Juros e renda fixa' },
-  { id: 'carteira', label: 'Minha carteira' },
-  { id: 'dados', label: 'Status dos dados' },
+  { id: 'juros', label: 'Renda fixa' },
+  { id: 'carteira', label: 'Carteira' },
+  { id: 'dados', label: 'Cotações' },
 ];
 
 export interface Route { page: Page; params: URLSearchParams }

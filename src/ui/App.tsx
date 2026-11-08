@@ -256,11 +256,11 @@ export function SimulatorPage({ requestedTicker }: { requestedTicker?: string | 
 
         <section id="simulador" aria-label="Parâmetros" className="no-print card grid grid-cols-2 gap-4 p-5 md:grid-cols-3 xl:grid-cols-7">
           <Field label="Preço da cota" prefix="R$" value={form.price} onChange={edit('price')} error={errors.price} help={HELP.price} testId="in-price" />
-          <Field label="Dividendo/cota" prefix="R$" value={form.dividend} onChange={edit('dividend')} error={errors.dividend} help={HELP.dividend} testId="in-dividend" />
-          <Field label="Cotas desejadas/mês" value={form.desiredShares} onChange={edit('desiredShares')} error={errors.desiredShares} help={HELP.desiredShares} inputMode="numeric" testId="in-desired" />
+          <Field label="Rendimento mensal por cota" prefix="R$" value={form.dividend} onChange={edit('dividend')} error={errors.dividend} help={HELP.dividend} testId="in-dividend" />
+          <Field label="Cotas novas por mês" value={form.desiredShares} onChange={edit('desiredShares')} error={errors.desiredShares} help={HELP.desiredShares} inputMode="numeric" testId="in-desired" />
           <Field label="Inflação anual" suffix="%" value={form.inflationPct} onChange={edit('inflationPct')} error={errors.inflationPct} help={HELP.inflationPct} testId="in-inflation" />
-          <Field label="Aporte mensal (aba Aportes)" prefix="R$" value={form.contribution} onChange={edit('contribution')} error={errors.contribution} help={HELP.contribution} testId="in-contribution" />
-          <Field label="Meta de renda mensal" prefix="R$" value={form.incomeGoal} onChange={edit('incomeGoal')} error={errors.incomeGoal} help={HELP.incomeGoal} testId="in-goal" />
+          <Field label="Quanto investe por mês" prefix="R$" value={form.contribution} onChange={edit('contribution')} error={errors.contribution} help={HELP.contribution} testId="in-contribution" />
+          <Field label="Renda que deseja por mês" prefix="R$" value={form.incomeGoal} onChange={edit('incomeGoal')} error={errors.incomeGoal} help={HELP.incomeGoal} testId="in-goal" />
           <div className="flex flex-col gap-1.5">
             <span className="label">Base da meta</span>
             <div className="seg" role="group" aria-label="Base da meta de renda">
