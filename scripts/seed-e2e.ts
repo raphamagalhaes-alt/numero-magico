@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { parseCotahistAll } from '../server/sources/cotahist';
 import { HistoryStore } from '../server/sources/history';
 import { DividendStore } from '../server/sources/fnet-all';
+import { StockDividendStore } from '../server/sources/b3-listed';
 import { parseCvmFii } from '../server/sources/cvm-fii';
 import { parseTesouro } from '../server/sources/tesouro';
 import { mergeRates, parseBis, parseEcb, parseNyFed } from '../server/sources/global-rates';
@@ -34,12 +35,20 @@ for (let m = 0; m < 12; m++) {
 d.d.coveredFrom = '2025-11-01'; d.d.coveredTo = '2026-11-07';
 d.save();
 
+const sd = new StockDividendStore(join(dir, 'stock-dividends.json'));
+sd.set([
+  { isin: 'BRPETRACNPR6', amount: 0.9, recordDate: '2026-08-21', paymentDate: '2026-12-21', approvedOn: '2026-08-06', kind: 'DIVIDENDO', relatedTo: 'Anual/2026' },
+  { isin: 'BRPETRACNPR6', amount: 0.6, recordDate: '2026-05-20', paymentDate: '2026-08-20', approvedOn: '2026-05-10', kind: 'JCP', relatedTo: 'Anual/2026' },
+  { isin: 'BRPETRACNPR6', amount: 0.9, recordDate: '2026-02-20', paymentDate: '2026-05-20', approvedOn: '2026-02-10', kind: 'DIVIDENDO', relatedTo: 'Anual/2025' },
+], ['BRPETRACNPR6']);
+sd.save();
+
 const cvm = parseCvmFii(fx('cvm-geral-excerpt.csv', 'latin1'), fx('cvm-complemento-excerpt.csv', 'latin1'));
 const sgs = (code: number, key: string, label: string, unit: string, value: number) => ({ code, key, label, unit, last: { date: '2026-11-06', value }, history: [{ date: '2026-11-06', value }], source: `Banco Central do Brasil — SGS série ${code}`, sourceUrl: 'https://api.bcb.gov.br/' });
 const now = new Date().toISOString();
 const ok = { lastSuccess: now, lastAttempt: now, lastError: null, asOf: '2026-11-06' };
 writeFileSync(join(dir, 'hub.json'), JSON.stringify({
-  status: { cotacoes: ok, cvm: ok, rendimentos: ok, macro: ok, global: ok },
+  status: { cotacoes: ok, cvm: ok, rendimentos: ok, acoes: ok, macro: ok, global: ok },
   cvm: Object.fromEntries(cvm),
   macro: {
     indicators: [sgs(432, 'selic_meta', 'Selic — meta Copom', '% a.a.', 13.75), sgs(4389, 'cdi', 'CDI (anualizado, base 252)', '% a.a.', 13.65), sgs(13522, 'ipca_12m', 'IPCA — acumulado 12 meses', '%', 4.58), sgs(1, 'dolar_ptax', 'Dólar PTAX (venda)', 'R$', 5.5013)],

@@ -14,12 +14,12 @@ describe('parser COTAHIST (B3) — layout posicional oficial', () => {
   it('extrai fechamento, data do pregão e ISIN do MXRF11', () => {
     const q = parseCotahist(COTAHIST, 'MXRF11')!;
     expect(q.sessionDate).toBe('2026-11-06');
-    expect(q.close).toBe('8.80');
-    expect(q.open).toBe('8.64');
-    expect(q.high).toBe('8.90');
-    expect(q.low).toBe('8.58');
+    expect(q.close).toBe('9.10');
+    expect(q.open).toBe('9.00');
+    expect(q.high).toBe('9.20');
+    expect(q.low).toBe('8.95');
     expect(q.isin).toBe('BRMXRFCTF008');
-    expect(parseCotahist(COTAHIST, 'HGLG11')!.close).toBe('146.52');
+    expect(parseCotahist(COTAHIST, 'HGLG11')!.close).toBe('151.25');
     expect(parseCotahist(COTAHIST, 'XXXX11')).toBeNull();
   });
 });
@@ -65,7 +65,7 @@ describe('provedor oficial B3 + Fundos.NET', () => {
       fetchImpl: fakeOfficial({ files: { '2026-11-06': COTAHIST }, docs: [{ id: 2, dataEntrega: '30/10/2026 16:31', xml: MXRF_XML }, { id: 1, dataEntrega: '30/09/2026 17:06', xml: SEP_XML }] }),
     });
     const s = await p.fetchSnapshot('MXRF11');
-    expect(s.lastTrade).toMatchObject({ price: '8.80', sessionDate: '2026-11-06', kind: 'fechamento' });
+    expect(s.lastTrade).toMatchObject({ price: '9.10', sessionDate: '2026-11-06', kind: 'fechamento' });
     expect(s.lastTrade!.sourceUrl).toContain('COTAHIST_D06112026.ZIP');
     expect(s.lastAnnouncedDividend).toMatchObject({ amountPerShare: '0.095', recordDate: '2026-10-30', paymentDate: '2026-11-16', taxExempt: true });
     expect(s.lastPaidDividend).toMatchObject({ amountPerShare: '0.1', paymentDate: '2026-10-15' });
@@ -106,7 +106,7 @@ describe('provedor oficial B3 + Fundos.NET', () => {
       fetchImpl: fakeOfficial({ files: { '2026-11-06': COTAHIST }, docs: [], fnetStatus: 503 }), retryDelayMs: 1,
     });
     const partial = await bad.fetchSnapshot('MXRF11');
-    expect(partial.lastTrade?.price).toBe('8.80');
+    expect(partial.lastTrade?.price).toBe('9.10');
     expect(partial.partial).toEqual({ trade: true, dividends: false });
     expect(partial.partialErrors?.[0]).toMatch(/503/);
   });

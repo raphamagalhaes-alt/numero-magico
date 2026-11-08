@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { COTAHIST_NAME, readCotahistFile } from './sources/import';
 import { fileURLToPath } from 'node:url';
 import { dirname, extname, join, relative, resolve, isAbsolute } from 'node:path';
 import { ManualFileProvider } from './providers/manual';
@@ -12,8 +13,10 @@ import { nextNineAm, startDailyScheduler } from './scheduler';
 import { learnHolidays, loadExtraHolidays } from './calendar';
 import { createFetch } from './http';
 import { ASSETS } from '../src/assets/registry';
+import { D } from '../src/engine/decimal';
 import { DataHub } from './hub';
 import { EVENING_CRON } from './scheduler';
+import { AlertService, alertsPath, collectEvents, parseTickers, toIcs, toRss } from './alerts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 8787);
@@ -26,15 +29,23 @@ loadExtraHolidays(LEARNED);
 
 const tickers = Object.keys(ASSETS);
 const DATA_DIR = process.env.DATA_DIR ?? join(here, 'data', 'cache');
+/** Somente com autorização/contrato da B3: a página de Cotações Históricas proíbe coleta automatizada. */
+const B3_AUTHORIZED = process.env.B3_MARKET_DATA_AUTHORIZED === '1';
+/** Exposição pública sem autorização: dados da B3 não são servidos (Termos de Uso: uso exclusivamente pessoal). */
+const LOOPBACK = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '::1';
+const B3_PUBLIC_BLOCK = !LOOPBACK && !B3_AUTHORIZED && process.env.B3_PERSONAL_USE_ACK !== '1';
 const hub = new DataHub({
   dir: DATA_DIR,
+  b3AutomatedDownload: B3_AUTHORIZED,
+  importDir: process.env.IMPORT_DIR ?? join(here, 'data', 'import'),
   fetchImpl: createFetch(),
   historyMonths: Number(process.env.HISTORY_MONTHS ?? 13),
   dividendBackfillDays: Number(process.env.DIVIDEND_BACKFILL_DAYS ?? 400),
   log: (m) => log('info', m),
 });
 /** Cadastro fixo (com demonstração) + qualquer FII/Fiagro do universo com CNPJ conhecido pela CVM. */
-const isTicker = (t: string) => Object.hasOwn(ASSETS, t) || Boolean(hub.cnpjOf(t));
+const isStock = (t: string) => hub.history.meta(t)?.cls === 'ACAO';
+const isTicker = (t: string) => Object.hasOwn(ASSETS, t) || Boolean(hub.cnpjOf(t)) || isStock(t);
 const kind = process.env.MARKET_PROVIDER ?? (process.env.MARKET_PROVIDER_URL ? 'http' : 'official');
 const httpFetch = createFetch();
 const provider: MarketDataProvider =
@@ -45,6 +56,12 @@ const provider: MarketDataProvider =
       isinByTicker: Object.fromEntries(tickers.map((t) => [t, ASSETS[t].isin])),
       fetchImpl: httpFetch,
       resolve: (t) => ({ cnpj: hub.cnpjOf(t), isin: hub.isinOf(t) }),
+      automatedQuotes: B3_AUTHORIZED,
+      localTrade: (t) => {
+        const pts = hub.history.points(t);
+        const p = pts[pts.length - 1];
+        return p ? { price: p.close.toFixed(2), sessionDate: p.date, tradedAt: `${p.date}T18:00:00-03:00`, kind: 'fechamento', source: 'B3 — arquivo COTAHIST importado pelo usuário (fechamento do pregão)' } : null;
+      },
       onMissingSessions: (d) => {
         const c = learnHolidays(LEARNED, d);
         if (c.length) log('info', `dias sem pregão confirmados: ${c.join(', ')}`);
@@ -70,7 +87,19 @@ const refreshAll = async () => {
     log('error', 'falha na atualização geral', { error: e instanceof Error ? e.message : String(e) });
   } finally { refreshingAll = false; }
 };
-const runHub = async () => { try { await hub.updateAll(); } catch (e) { log('error', 'central de dados', { error: e instanceof Error ? e.message : String(e) }); } };
+const alerts = new AlertService(alertsPath(DATA_DIR), {
+  subject: process.env.VAPID_SUBJECT ?? 'mailto:alertas@localhost',
+  fetchImpl: createFetch(),
+  telegram: process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID ? { token: process.env.TELEGRAM_BOT_TOKEN, chatId: process.env.TELEGRAM_CHAT_ID, tickers: parseTickers(process.env.TELEGRAM_TICKERS ?? '') } : null,
+  log: (m) => log('warn', m),
+});
+const runHub = async () => {
+  try {
+    await hub.updateAll();
+    const n = await alerts.notifyNew(hub);
+    if (n) log('info', `alertas enviados: ${n}`);
+  } catch (e) { log('error', 'central de dados', { error: e instanceof Error ? e.message : String(e) }); }
+};
 if (process.env.DISABLE_SCHEDULER !== '1') {
   startDailyScheduler(runHub, (m) => log('info', m), undefined, 'central-dados-manha');
   startDailyScheduler(runHub, (m) => log('info', m), EVENING_CRON, 'central-dados-noite');
@@ -87,7 +116,7 @@ const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 };
 
 function json(res: ServerResponse, code: number, body: unknown, headers: Record<string, string> = {}) {
@@ -122,6 +151,28 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   try { url = new URL(req.url ?? '/', 'http://localhost'); } catch { return json(res, 400, { error: 'Requisição inválida' }); }
   if (url.pathname === '/api/health') return json(res, 200, { ok: true, provider: provider.name, configured: provider.isConfigured() });
   if (url.pathname === '/api/assets') return json(res, 200, tickers.map((t) => ({ ticker: t, name: ASSETS[t].name })));
+  if (url.pathname === '/api/alerts/calendar.ics' || url.pathname === '/api/alerts/feed.xml') {
+    if (B3_PUBLIC_BLOCK) return json(res, 451, { error: 'Alertas com dados da B3 indisponíveis em servidor público sem autorização da B3.' });
+    const evs = collectEvents(hub, parseTickers(url.searchParams.get('t')));
+    const ics = url.pathname.endsWith('.ics');
+    res.writeHead(200, { 'Content-Type': ics ? 'text/calendar; charset=utf-8' : 'application/rss+xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600', ...SECURITY_HEADERS, ...(ics ? { 'Content-Disposition': 'inline; filename="proventos.ics"' } : {}) });
+    return res.end(ics ? toIcs(evs) : toRss(evs, `http://${req.headers.host ?? 'localhost'}`));
+  }
+  if (url.pathname === '/api/push/key') return json(res, 200, { publicKey: alerts.publicKey });
+  if ((url.pathname === '/api/push/subscribe' || url.pathname === '/api/push/unsubscribe') && req.method === 'POST') {
+    if (req.headers['x-requested-with'] !== 'mxrf11') return json(res, 403, { error: 'Requisição não autorizada' });
+    let raw = '';
+    for await (const c of req) { raw += c; if (raw.length > 20000) return json(res, 413, { error: 'Corpo grande demais' }); }
+    let body: unknown;
+    try { body = JSON.parse(raw); } catch { return json(res, 400, { error: 'JSON inválido' }); }
+    if (url.pathname.endsWith('unsubscribe')) { alerts.unsubscribe(String((body as { endpoint?: string })?.endpoint ?? '')); return json(res, 200, { ok: true }); }
+    const err = alerts.subscribe(body);
+    return err ? json(res, 400, { error: err }) : json(res, 200, { ok: true });
+  }
+  if (url.pathname === '/api/compliance') return json(res, 200, { b3Authorized: B3_AUTHORIZED, b3PublicBlock: B3_PUBLIC_BLOCK, importDir: hub.importDir, automatedQuotes: hub.automatedQuotes });
+  if (url.pathname === '/api/import/cotahist' && req.method === 'POST') return handleImport(req, res);
+  if (B3_PUBLIC_BLOCK && /^\/api\/(universe|asset\/|market\/)/.test(url.pathname))
+    return json(res, 451, { error: 'Dados da B3 indisponíveis neste servidor público: os Termos de Uso da B3 permitem uso exclusivamente pessoal; a publicação exige autorização prévia e por escrito da B3 (contrato de distribuição de market data).' });
   if (url.pathname === '/api/universe') return json(res, 200, hub.universe(), { 'Cache-Control': 'public, max-age=300' });
   if (url.pathname === '/api/macro') return json(res, 200, hub.macro() ?? { indicators: [], tesouro: { baseDate: null, bonds: [], source: '', sourceUrl: '' } });
   if (url.pathname === '/api/rates/global') return json(res, 200, hub.global() ?? { rates: [] });
@@ -132,6 +183,7 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   if (m) {
     const ticker = m[1];
     if (!isTicker(ticker)) return json(res, 404, { error: `Ativo ${ticker} não cadastrado` });
+    if (isStock(ticker)) return json(res, 200, stockStatus(ticker));
     if (m[2]) {
       if (req.method !== 'POST') return json(res, 405, { error: 'Use POST' }, { Allow: 'POST' });
       // bloqueia POST de outros sites (CSRF): exige cabeçalho próprio, que força preflight CORS
@@ -149,6 +201,61 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   if (url.pathname.startsWith('/api/')) return json(res, 404, { error: 'Rota não encontrada' });
   if ((req.method === 'GET' || req.method === 'HEAD') && serveStatic(url.pathname, res, req.method === 'HEAD')) return;
   json(res, 404, { error: 'Não encontrado' });
+}
+
+/**
+ * Ação: proventos irregulares (dividendos/JCP) viram uma média mensal dos últimos 12 meses para o
+ * modelo mensal do simulador, com a fonte e a natureza (média, bruta) explícitas.
+ */
+function stockStatus(ticker: string) {
+  const m = hub.metrics(ticker)!;
+  const ev = hub.stockDivs.get(m.isin);
+  const today = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
+  const win = ev.filter((e) => e.recordDate > from && e.recordDate <= today);
+  // soma e média em aritmética decimal (evita 2,40/12 = 0,199999 por ponto flutuante)
+  const sumD = win.reduce((a, e) => a.add(String(e.amount)), new D(0));
+  const sum = sumD.toNumber();
+  const last = ev[ev.length - 1];
+  const monthly = sumD.div(12).toDecimalPlaces(6, D.ROUND_DOWN);
+  return {
+    ticker, lastAttemptAt: null, lastError: win.length ? null : 'Sem proventos com data-com nos últimos 12 meses (B3 — Empresas Listadas).',
+    stale: false, providerConfigured: true, providerName: 'B3 — Empresas Listadas + COTAHIST importado', automaticUpdates: true, nextScheduledRun: null,
+    snapshot: {
+      ticker, provider: 'B3 (uso pessoal)', fetchedAt: hub.status().find((s) => s.key === 'acoes')?.lastSuccess ?? new Date().toISOString(),
+      lastTrade: { price: m.close.toFixed(2), sessionDate: m.sessionDate, tradedAt: `${m.sessionDate}T18:00:00-03:00`, kind: 'fechamento', source: 'B3 — arquivo COTAHIST importado pelo usuário' },
+      lastPaidDividend: win.length ? {
+        amountPerShare: monthly.toFixed(), recordDate: last.recordDate, paymentDate: last.paymentDate ?? last.recordDate,
+        referencePeriod: `média mensal de ${win.length} proventos em 12 meses (R$ ${sum.toFixed(4)}/ação, dividendos + JCP brutos)`,
+        source: 'B3 — Empresas Listadas (proventos em dinheiro)',
+      } : null,
+      lastAnnouncedDividend: null,
+    },
+  };
+}
+
+/** Upload de arquivo COTAHIST baixado manualmente (somente acesso local ou com token). */
+async function handleImport(req: IncomingMessage, res: ServerResponse) {
+  const remote = req.socket.remoteAddress ?? '';
+  const local = remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1';
+  if (!local && !(REFRESH_TOKEN && req.headers.authorization === `Bearer ${REFRESH_TOKEN}`)) return json(res, 403, { error: 'Importação permitida apenas localmente.' });
+  if (req.headers['x-requested-with'] !== 'mxrf11') return json(res, 403, { error: 'Requisição não autorizada' });
+  const name = String(req.headers['x-file-name'] ?? '');
+  if (!COTAHIST_NAME.test(name)) return json(res, 400, { error: 'Nome de arquivo inválido: use o arquivo original (COTAHIST_Dddmmaaaa.ZIP, COTAHIST_Mmmaaaa.ZIP ou COTAHIST_Aaaaa.ZIP).' });
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const c of req) { size += (c as Buffer).length; if (size > 200 * 1024 * 1024) return json(res, 413, { error: 'Arquivo grande demais (máx. 200 MB).' }); chunks.push(c as Buffer); }
+  try {
+    const recs = readCotahistFile(new Uint8Array(Buffer.concat(chunks)), name);
+    if (!recs.length) return json(res, 400, { error: 'Nenhum registro de cotação reconhecido no arquivo.' });
+    const sessions = hub.ingestRecords(recs);
+    mkdirSync(hub.importDir, { recursive: true });
+    writeFileSync(join(hub.importDir, name), Buffer.concat(chunks)); // mantém o original para reprocessamento
+    log('info', `importação manual: ${name}`, { sessions });
+    return json(res, 200, { ok: true, sessions, records: recs.length });
+  } catch (e) {
+    return json(res, 400, { error: `Arquivo inválido: ${e instanceof Error ? e.message : e}` });
+  }
 }
 
 createServer((req, res) => {

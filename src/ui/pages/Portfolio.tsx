@@ -6,6 +6,7 @@ import { useUniverse } from '../data';
 import { fmtBRL, fmtDecimal, fmtInt, fmtPct } from '../format';
 import { go } from '../route';
 import { loadRaw, save } from '../storage';
+import { AlertChannels } from '../components/AlertChannels';
 
 export interface Position { ticker: string; shares: number }
 const POS_KEY = 'mxrf:positions';
@@ -81,7 +82,7 @@ export function PortfolioPage() {
       )}
       <form onSubmit={add} className="card grid grid-cols-2 gap-3 p-4 md:grid-cols-5" aria-label="Adicionar posição">
         <label className="flex flex-col gap-1 text-xs text-mist-400">Ticker<input className="input uppercase" list="pf-tickers" value={ticker} onChange={(e) => setTicker(e.target.value)} data-testid="pf-ticker" /></label>
-        <datalist id="pf-tickers">{assets.filter((a) => a.cls === 'FII' || a.cls === 'FIAGRO').slice(0, 800).map((a) => <option key={a.ticker} value={a.ticker}>{a.name}</option>)}</datalist>
+        <datalist id="pf-tickers">{assets.filter((a) => a.cls === 'FII' || a.cls === 'FIAGRO' || a.cls === 'ACAO').slice(0, 1200).map((a) => <option key={a.ticker} value={a.ticker}>{a.name}</option>)}</datalist>
         <label className="flex flex-col gap-1 text-xs text-mist-400">Cotas que tenho<input className="input num" inputMode="numeric" value={shares} onChange={(e) => setShares(e.target.value)} data-testid="pf-shares" /></label>
         <div className="flex items-end"><button className="btn btn-gold w-full" type="submit"><Plus size={14} aria-hidden />Adicionar</button></div>
         <label className="flex flex-col gap-1 text-xs text-mist-400 md:col-start-5">Cotas novas/mês desejadas<input className="input num" inputMode="numeric" value={desired} onChange={(e) => setDesired(e.target.value)} /></label>
@@ -94,7 +95,8 @@ export function PortfolioPage() {
             <tbody>{positions.map((p) => {
               const a = assets.find((x) => x.ticker === p.ticker);
               const value = a ? a.close * p.shares : 0;
-              const div = a?.lastDividend?.amount ?? 0;
+              // FII: último rendimento (mensal). Ação: média mensal dos proventos dos últimos 12 meses.
+              const div = a?.cls === 'ACAO' ? (a.dy12m ? Math.trunc((a.dy12m * a.close / 12) * 1e6) / 1e6 : 0) : a?.lastDividend?.amount ?? 0;
               const income = Math.round(div * p.shares * 100) / 100;
               totalValue += value; totalIncome += income;
               const m = a && div > 0 ? magicNumber(String(a.close), String(div), k) : null;
@@ -125,7 +127,8 @@ export function PortfolioPage() {
           </table>
         </div>
       )}
-      <p className="text-[11px] text-mist-500">Renda estimada com o último rendimento oficial (Fundos.NET) e preço do último fechamento (B3); rendimentos futuros podem ser diferentes. Ações/ETFs/BDRs aparecem com valor, sem renda estimada.</p>
+      <AlertChannels tickers={positions.map((p) => p.ticker)} />
+      <p className="text-[11px] text-mist-500">Renda estimada: FIIs com o último rendimento (Fundos.NET); ações com a média mensal de dividendos + JCP brutos dos últimos 12 meses (B3 — Empresas Listadas). Proventos futuros podem ser diferentes. ETFs/BDRs aparecem só com valor.</p>
     </section>
   );
 }

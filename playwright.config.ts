@@ -25,6 +25,7 @@ export default defineConfig({
         REFRESH_COOLDOWN_MS: '0',
         DISABLE_SCHEDULER: '1',
         DATA_DIR: 'test-results/cache-e2e',
+        IMPORT_DIR: 'test-results/import-e2e',
       },
     },
     {

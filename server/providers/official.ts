@@ -97,6 +97,12 @@ export interface OfficialProviderOptions {
   maxLookbackDays?: number;
   /** ticker → ISIN esperado (confere com o COTAHIST). */
   isinByTicker?: Record<string, string>;
+  /**
+   * Download automático do COTAHIST (só com autorização da B3). Quando false, o preço vem de
+   * localTrade (arquivos importados manualmente pelo usuário).
+   */
+  automatedQuotes?: boolean;
+  localTrade?: (ticker: string) => LastTrade | null;
   /** Resolução dinâmica para ativos fora do cadastro fixo (ex.: qualquer FII do universo). */
   resolve?: (ticker: string) => { cnpj?: string; isin?: string } | undefined;
   retries?: number;
@@ -163,6 +169,11 @@ export class OfficialB3FnetProvider implements MarketDataProvider {
 
   /** Procura o pregão mais recente com arquivo publicado, voltando dia a dia. */
   async fetchLastTrade(ticker: string): Promise<LastTrade> {
+    if (this.opts.automatedQuotes === false) {
+      const t = this.opts.localTrade?.(ticker);
+      if (!t) throw new Error(`Sem cotação importada para ${ticker}. Importe o arquivo COTAHIST do último pregão (Status dos dados).`);
+      return t;
+    }
     const today = saoPauloDate(this.now());
     const missing: string[] = [];
     let cur = today;

@@ -31,7 +31,7 @@ type Status = 'demo' | 'market' | 'custom';
 interface Prefs { mode: Mode; status: Status; tab: MainTab; marketLabel: string; ticker: string }
 
 const DEFAULT_PREFS: Prefs = { mode: 'demo', status: 'demo', tab: 'nominal', marketLabel: '', ticker: DEFAULT_TICKER };
-const TICKER_RE = /^[A-Z0-9]{4,6}1[1-9]$/;
+const TICKER_RE = /^[A-Z0-9]{4}\d{1,2}$/;
 const validPrefs = (p: Prefs) => (Object.hasOwn(ASSETS, p.ticker) || TICKER_RE.test(p.ticker)) && ['nominal', 'inflacao', 'aportes'].includes(p.tab)
   && ['demo', 'market'].includes(p.mode) && ['demo', 'market', 'custom'].includes(p.status);
 const TABS: { id: MainTab; label: string; charts: ChartKey[] }[] = [
@@ -192,6 +192,7 @@ export function SimulatorPage({ requestedTicker }: { requestedTicker?: string | 
   const showContrib = prefs.tab === 'aportes';
   const tabDef = TABS.find((t) => t.id === prefs.tab)!;
   const uMetrics = universe.data?.assets.find((a) => a.ticker === TICKER);
+  const stocks = useMemo(() => (universe.data?.assets ?? []).filter((a) => a.cls === 'ACAO' && a.dy12m).sort((a, b) => a.ticker.localeCompare(b.ticker)), [universe.data]);
   const otherFunds = useMemo(() => (universe.data?.assets ?? []).filter((a) => (a.cls === 'FII' || a.cls === 'FIAGRO') && a.cnpj && !Object.hasOwn(ASSETS, a.ticker)).sort((a, b) => a.ticker.localeCompare(b.ticker)), [universe.data]);
   const asset = Object.hasOwn(ASSETS, TICKER) ? ASSETS[TICKER] : { ticker: TICKER, name: uMetrics?.name ?? 'Fundo listado', cnpj: uMetrics?.cnpj ?? '' };
 
@@ -213,7 +214,12 @@ export function SimulatorPage({ requestedTicker }: { requestedTicker?: string | 
                 {otherFunds.map((a) => <option key={a.ticker} value={a.ticker}>{a.ticker} — {a.name}</option>)}
               </optgroup>
             )}
-            {!Object.hasOwn(ASSETS, TICKER) && !otherFunds.some((a) => a.ticker === TICKER) && <option value={TICKER}>{TICKER}</option>}
+            {stocks.length > 0 && (
+              <optgroup label="Ações com proventos (média mensal de 12 meses)">
+                {stocks.map((a) => <option key={a.ticker} value={a.ticker}>{a.ticker} — {a.name}</option>)}
+              </optgroup>
+            )}
+            {!Object.hasOwn(ASSETS, TICKER) && !otherFunds.some((a) => a.ticker === TICKER) && !stocks.some((a) => a.ticker === TICKER) && <option value={TICKER}>{TICKER}</option>}
           </select>
           <div className="seg" role="group" aria-label="Origem dos dados">
             <button type="button" aria-pressed={prefs.mode === 'demo'} disabled={!hasDemo} title={hasDemo ? undefined : 'O exemplo didático existe apenas para o MXRF11'} onClick={() => setMode('demo')} className="disabled:opacity-40">Demonstração</button>

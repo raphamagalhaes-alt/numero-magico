@@ -65,11 +65,11 @@ São perspectivas especializadas simuladas, não pessoas reais. Todo achado corr
 | # | Recomendação | Situação |
 |---|---|---|
 | 1 | Nome neutro | **Feito:** "Número Mágico — Simulador e Explorador de Investimentos". O MXRF11 virou só o exemplo padrão. |
-| 2 | Licença de market data da B3 | **Pendente — depende de você.** Exibir cotações publicamente pode exigir licença; confirmar com a B3 antes de publicar. O app usa só arquivos públicos de download. |
+| 2 | Licença de market data da B3 | **Verificado nos documentos da B3:** publicar exige contrato de distribuição, e a coleta automatizada do COTAHIST é proibida. O app foi adequado: importação manual, bloqueio público e fixtures sintéticos. Ver `docs/LICENCA-B3.md`. |
 | 3 | Comparar com renda fixa | **Feito:** CDB, LCI/LCA, Tesouro Selic, Prefixado e IPCA+, com as taxas oficiais do dia, IR regressivo por aporte e custódia. |
 | 4 | Faixas de resultado e testes de estresse | **Feito:** Monte Carlo com 500 trajetórias e volatilidade histórica do ativo; 4 choques de estresse. |
 | 5 | Onboarding em 3 perguntas e tabela por ano no celular | **Feito.** |
-| 6 | Retenção | **Feito:** "Minha carteira" com progresso até o número mágico e alerta de novo aviso de rendimento, no app e por notificação do navegador. Alerta por e-mail exigiria contas de usuário e um serviço de envio. |
+| 6 | Retenção | **Feito:** "Minha carteira" com progresso até o número mágico, mais alertas grátis por calendário ICS, RSS, Web Push e Telegram. |
 | 7 | Recursos "Pro" | **Feitos:** comparador lado a lado, PDF com marca própria e cenários salvos. Não há cobrança: um plano pago exigiria contas e meio de pagamento. |
 | 8 | Regra de compra mínima | **Feito:** custo máximo por ordem; abaixo dele, o caixa acumula. |
 | — | Explorar outros ativos e investimentos | **Feito:** universo completo da B3 (ações, FIIs, ETFs, BDRs, Fiagros), juros e renda fixa do Brasil, e juros de cerca de 20 bancos centrais, com atualização diária em fontes oficiais. |

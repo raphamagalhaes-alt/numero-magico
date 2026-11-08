@@ -23,9 +23,9 @@ describe('COTAHIST — universo completo', () => {
   });
   it('lê fechamento e volume financeiro', () => {
     const m = recs.find((r) => r.ticker === 'MXRF11')!;
-    expect(m.close).toBeCloseTo(8.8, 10);
+    expect(m.close).toBeCloseTo(9.1, 10);
     expect(m.volume).toBeGreaterThan(1_000_000);
-    expect(recs.find((r) => r.ticker === 'PETR4')!.volume).toBeCloseTo(2164746133, 0);
+    expect(recs.find((r) => r.ticker === 'PETR4')!.volume).toBeCloseTo(1500000000, 0);
   });
 });
 

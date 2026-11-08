@@ -36,6 +36,7 @@ export function ExplorerPage() {
   const [compare, setCompare] = useState<string[]>(getCompareList);
 
   const isFund = cls === 'FII' || cls === 'FIAGRO';
+  const hasDiv = isFund || cls === 'ACAO';
   const num = (s: string) => { const n = Number(s.replace(/\./g, '').replace(',', '.')); return s.trim() && Number.isFinite(n) ? n : null; };
 
   const rows = useMemo(() => {
@@ -109,7 +110,7 @@ export function ExplorerPage() {
             </label>
             <label className="flex flex-col gap-1 text-xs text-mist-400">Liquidez mín. (R$/dia)<input className="input num" inputMode="numeric" value={minLiq} onChange={(e) => setMinLiq(e.target.value)} /></label>
             <label className="flex flex-col gap-1 text-xs text-mist-400">Volatilidade máx. (%)<input className="input num" inputMode="decimal" value={maxVol} onChange={(e) => setMaxVol(e.target.value)} /></label>
-            {isFund && <label className="flex flex-col gap-1 text-xs text-mist-400">DY 12m mín. (%)<input data-testid="exp-mindy" className="input num" inputMode="decimal" value={minDy} onChange={(e) => setMinDy(e.target.value)} /></label>}
+            {hasDiv && <label className="flex flex-col gap-1 text-xs text-mist-400">DY 12m mín. (%)<input data-testid="exp-mindy" className="input num" inputMode="decimal" value={minDy} onChange={(e) => setMinDy(e.target.value)} /></label>}
             {isFund && <label className="flex flex-col gap-1 text-xs text-mist-400">P/VP máx.<input className="input num" inputMode="decimal" value={maxPvp} onChange={(e) => setMaxPvp(e.target.value)} /></label>}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-mist-400">
@@ -124,7 +125,7 @@ export function ExplorerPage() {
                 <th scope="col" className="sticky left-0 top-0 z-20 bg-ink-800 px-3 py-2.5 text-left font-medium text-mist-300">
                   <button type="button" className="hover:text-gold-300" onClick={() => setSort((s) => ({ key: 'ticker', dir: s.key === 'ticker' ? (s.dir === 1 ? -1 : 1) : 1 }))}>Ativo</button>
                 </th>
-                {COLS.filter((c) => !c.fii || isFund || cls === 'ALL').map((c) => head(c.key, c.label, c.help))}
+                {COLS.filter((c) => !c.fii || hasDiv || cls === 'ALL').filter((c) => !(cls === 'ACAO' && (c.key === 'pvp' || c.key === 'dyAnnualizedLast'))).map((c) => head(c.key, c.label, c.help))}
                 <th scope="col" className="sticky top-0 z-10 bg-ink-800 px-3 py-2.5 text-right font-medium text-mist-300">Ações</th>
               </tr></thead>
               <tbody>
@@ -134,7 +135,7 @@ export function ExplorerPage() {
                       <span className="text-mist-100">{a.ticker}</span>
                       <span className="block max-w-[180px] truncate text-[11px] font-normal text-mist-500">{a.name}{a.segment ? ` · ${a.segment}` : ''}</span>
                     </th>
-                    {COLS.filter((c) => !c.fii || isFund || cls === 'ALL').map((c) => (
+                    {COLS.filter((c) => !c.fii || hasDiv || cls === 'ALL').filter((c) => !(cls === 'ACAO' && (c.key === 'pvp' || c.key === 'dyAnnualizedLast'))).map((c) => (
                       <td key={c.key} className={`whitespace-nowrap px-3 py-2 text-right ${(c.key === 'chg12m' || c.key === 'maxDrawdown12m') && (a[c.key] ?? 0) < 0 ? 'text-loss-400' : c.key === 'chg12m' && (a.chg12m ?? 0) > 0 ? 'text-gain-400' : 'text-mist-200'}`}>
                         {c.key === 'close' ? `R$ ${fmtDecimal(a.close, 2)}`
                           : c.key === 'avgVolume21' ? (a.avgVolume21 === null ? '—' : fmtCompactBRL(a.avgVolume21).replace(/^(?!R\$)/, 'R$ '))
@@ -143,7 +144,7 @@ export function ExplorerPage() {
                       </td>
                     ))}
                     <td className="whitespace-nowrap px-3 py-2 text-right">
-                      {(a.cls === 'FII' || a.cls === 'FIAGRO') && a.cnpj && (
+                      {(((a.cls === 'FII' || a.cls === 'FIAGRO') && a.cnpj) || (a.cls === 'ACAO' && a.dy12m)) && (
                         <button type="button" className="btn !px-2 !py-1 text-[11px]" onClick={() => go('simulador', { t: a.ticker })} aria-label={`Simular ${a.ticker}`}><Calculator size={12} aria-hidden />Simular</button>
                       )}{' '}
                       <label className="ml-1 inline-flex items-center gap-1 text-[11px] text-mist-400">
@@ -157,7 +158,7 @@ export function ExplorerPage() {
           </div>
           {rows.length > limit && <button type="button" className="btn self-center" onClick={() => setLimit((l) => l + 120)}>Mostrar mais ({rows.length - limit} restantes)</button>}
           <p className="text-[11px] text-mist-500">
-            Ações, ETFs e BDRs: preço e estatísticas da B3. Proventos de ações não são publicados em formato estruturado gratuito pelas fontes oficiais usadas aqui; por isso o DY é exibido apenas para FIIs e Fiagros (avisos do Fundos.NET). n/d* = valor patrimonial da CVM incompatível com a cota negociada (por exemplo, desdobramento recente ainda não refletido no informe mensal). Rentabilidade passada não garante resultados futuros.
+            DY de ações: dividendos + JCP (bruto, antes do IR retido no JCP) com data-com nos últimos 12 meses, por classe de ação (B3 — Empresas Listadas). FIIs/Fiagros: avisos do Fundos.NET. ETFs e BDRs: só preço. n/d* = valor patrimonial da CVM incompatível com a cota negociada (por exemplo, desdobramento recente ainda não refletido no informe mensal). Rentabilidade passada não garante resultados futuros.
           </p>
         </>
       )}

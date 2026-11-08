@@ -33,11 +33,11 @@ npm run dev          # frontend (http://localhost:5173) + API de dados (http://l
 | `npm run dev` | Vite + servidor de dados com recarga automática |
 | `npm run dev:web` | Apenas o frontend (o modo de mercado mostrará "serviço indisponível") |
 | `npm run server` | Apenas a API de dados + agendador |
-| `npm test` | 103 testes unitários (Vitest): motor, premissas avançadas, calendário, provedor oficial, exportação |
+| `npm test` | 111 testes unitários (Vitest): motor, premissas avançadas, calendário, provedor oficial, exportação |
 | `npm run check:live` | Consulta ao vivo B3 + Fundos.NET para todos os ativos |
 | `npm run data:update` | Rodada completa da central de dados (cotações, CVM, rendimentos, BCB, Tesouro, juros globais) |
 | `npm start` | Build + servidor único (frontend + API + agendador) |
-| `npm run test:e2e` | 30 testes de interface (Playwright) em desktop, tablet e celular |
+| `npm run test:e2e` | 33 testes de interface (Playwright) em desktop, tablet e celular |
 | `npm run typecheck` | Checagem de tipos do frontend e do servidor |
 | `npm run lint` | ESLint (inclui `react-hooks/exhaustive-deps`) |
 | `npm run ci` | Typecheck + lint + testes + build + E2E (o mesmo do GitHub Actions) |
@@ -92,13 +92,24 @@ e2e/             Testes Playwright
 - Estratégias com retirada: a parcela reinvestida é arredondada em centavos e o restante conta como dinheiro retirado. O retirado fica fora do patrimônio investido, então não há dupla contagem.
 - Cenários: as variações anuais de preço e dividendo entram a cada 12 meses. O preço é arredondado em centavos. O dividendo derivado é **truncado** em 6 casas, para nunca criar provento artificial.
 
+## Termos de uso da B3 (importante)
+
+A B3 **proíbe a coleta automatizada** da página de Cotações Históricas, e os dados do site dela são de **uso exclusivamente pessoal**. Publicar cotações exige contrato com a B3. Detalhes e trechos literais estão em [`docs/LICENCA-B3.md`](docs/LICENCA-B3.md).
+
+**Como o app se adequa:**
+- **Cotações:** você baixa o COTAHIST no site da B3 (diário, mensal ou anual) e envia em *Status dos dados*, ou coloca o arquivo em `server/data/import/`. O app processa tudo sozinho, às 9h e às 21h30 e a cada envio.
+- **Download automático:** só com `B3_MARKET_DATA_AUTHORIZED=1`, para quem tiver autorização da B3.
+- **Servidor exposto na internet** (HOST diferente de localhost) sem essa variável: os dados da B3 respondem HTTP 451. Os dados abertos (CVM, BCB, Tesouro, BIS, Fed, BCE) continuam disponíveis. Para uso pessoal num servidor próprio com acesso restrito, `B3_PERSONAL_USE_ACK=1` libera os dados.
+- **Testes:** usam arquivos COTAHIST **sintéticos** (`scripts/make-fixtures.ts`), sem redistribuir dados reais da B3.
+
 ## Central de dados — todas as fontes oficiais
 
 O servidor (`server/hub.ts`) atualiza **todos os dias às 9h e às 21h30 (America/Sao_Paulo)**. A rodada das 21h30 pega o fechamento do dia, que a B3 publica por volta das 20h30. Os dados são consumidos de fontes públicas, com código próprio; nada é copiado de corretoras ou de terceiros.
 
 | Conjunto | Fonte oficial | Frequência | Cobertura |
 |---|---|---|---|
-| Cotações, volume, variação, volatilidade | B3 — COTAHIST mensal (carga inicial de 13 meses) e diário | Diária | Ações, FIIs, Fiagros, ETFs, BDRs e fundos listados (~1.600 ativos) |
+| Cotações, volume, variação, volatilidade | B3 — arquivos COTAHIST **importados pelo usuário** (download automático só com autorização da B3) | A cada importação; processamento às 9h e 21h30 | Ações, FIIs, Fiagros, ETFs, BDRs e fundos listados (~1.900 ativos) |
+| Dividendos e JCP de ações, por evento e por classe (valor, data-com, pagamento, tipo) | B3 — Empresas Listadas (proventos em dinheiro), uso pessoal | Diária | Ações com negócio recente (~330 emissores) |
 | Rendimentos de FII/Fiagro (data-com, pagamento, isenção) | Fundos.NET — avisos estruturados de **todos** os fundos, por período de entrega | Diária (incremental) | Retroativo padrão de 400 dias, retomável |
 | CNPJ, VP/cota, cotistas, segmento | CVM Dados Abertos — informe mensal de FII | Diária (a CVM publica mensalmente) | Todos os FIIs com ISIN |
 | Selic, CDI, IPCA, IGP-M, PTAX | Banco Central — SGS (consulta por período até hoje) | Diária | Séries 432, 4389, 433, 13522, 189, 1, 21619 |
@@ -122,7 +133,20 @@ O servidor (`server/hub.ts`) atualiza **todos os dias às 9h e às 21h30 (Americ
 - **Status visível:** falhas parciais (como o download do Tesouro) aparecem em *Status dos dados*, nunca escondidas atrás de um "ok".
 - **Particularidade do Banco Central:** o SGS devolve 304 sem conteúdo para algumas janelas de datas, e a série da meta Selic publica datas futuras. O app consulta por período até hoje e repete a consulta com a janela deslocada.
 
-**Limitação honesta:** proventos de **ações** não são publicados em formato estruturado gratuito pelas fontes oficiais usadas. Por isso o DY aparece só para FIIs e Fiagros. O simulador também funciona para ações informando o dividendo manualmente.
+**Ações no simulador:** dividendos e JCP são irregulares. Por isso o simulador usa a **média mensal dos proventos brutos dos últimos 12 meses**, calculada em decimal e sempre identificada como média. O DY de ações soma dividendos e JCP brutos, antes do IR retido no JCP.
+
+## Alertas sem custo
+
+Os canais são configurados em *Minha carteira*:
+
+| Canal | Como funciona |
+|---|---|
+| Calendário | `webcal://…/api/alerts/calendar.ics?t=MXRF11,PETR4` traz datas-com e pagamentos. Funciona no Google Agenda, Apple e Outlook e se atualiza sozinho. |
+| Feed RSS | `…/api/alerts/feed.xml?t=…`, para qualquer leitor de RSS. |
+| Notificação push | Web Push, padrão aberto dos navegadores. As chaves VAPID são geradas localmente e não há serviço pago. Funciona com o app fechado; exige HTTPS fora do localhost. |
+| Telegram (opcional) | Bot gratuito, configurado com `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` e `TELEGRAM_TICKERS`. |
+
+Os alertas push e do Telegram saem depois de cada atualização da central e **só para eventos novos**. A primeira passagem apenas registra o histórico, para não disparar avisos antigos.
 
 ## Dados de mercado do simulador — fontes oficiais, sem chave
 

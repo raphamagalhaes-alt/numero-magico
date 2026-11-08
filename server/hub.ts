@@ -11,6 +11,9 @@ import type { AssetDetail, AssetMetrics, DatasetStatus, GlobalRatesResponse, Mac
 import { COTAHIST_URL } from './providers/official';
 import { parseCotahistAll } from './sources/cotahist';
 import { HistoryStore } from './sources/history';
+import { pendingImports, readCotahistFile, readImport } from './sources/import';
+import { StockDividendStore, issuerOf, syncStockDividends } from './sources/b3-listed';
+import type { CotahistRecord } from './sources/cotahist';
 import { fetchCvmFii, type FiiInfo } from './sources/cvm-fii';
 import { DividendStore, docLink, syncDividends } from './sources/fnet-all';
 import { fetchSgs } from './sources/bcb';
@@ -19,15 +22,17 @@ import { BIS_URL, ECB_URL, NYFED_URL, mergeRates, parseBis, parseEcb, parseNyFed
 
 export const COTAHIST_MONTH_URL = (yyyymm: string) => `https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_M${yyyymm.slice(5, 7)}${yyyymm.slice(0, 4)}.ZIP`;
 
-type Key = 'cotacoes' | 'cvm' | 'rendimentos' | 'macro' | 'global';
+type Key = 'cotacoes' | 'cvm' | 'rendimentos' | 'acoes' | 'macro' | 'global';
 const LABELS: Record<Key, string> = {
-  cotacoes: 'Cotações B3 (COTAHIST)', cvm: 'CVM — informe mensal de FII', rendimentos: 'Fundos.NET — avisos de rendimentos',
+  cotacoes: 'Cotações B3 (COTAHIST importado)', cvm: 'CVM — informe mensal de FII', rendimentos: 'Fundos.NET — avisos de rendimentos', acoes: 'B3 Empresas Listadas — dividendos e JCP de ações',
   macro: 'Banco Central (SGS) e Tesouro Direto', global: 'Juros de bancos centrais (BIS, Fed NY, BCE)',
 };
 
 interface Persisted {
   status: Record<Key, Omit<DatasetStatus, 'key' | 'label' | 'schedule'>>;
   cvm: Record<string, FiiInfo>;
+  /** Arquivos COTAHIST já importados (nome → tamanho:mtime). */
+  imported?: Record<string, string>;
   macro: MacroResponse | null;
   global: GlobalRatesResponse | null;
 }
@@ -40,11 +45,19 @@ export interface HubOptions {
   dividendBackfillDays?: number;
   log?: (m: string) => void;
   pauseMs?: number;
+  /**
+   * Download automático do COTAHIST. A B3 proíbe coleta automatizada da página de Cotações Históricas;
+   * só habilite (B3_MARKET_DATA_AUTHORIZED=1) com autorização/contrato da B3. Padrão: importação manual.
+   */
+  b3AutomatedDownload?: boolean;
+  /** Pasta onde o usuário coloca os arquivos COTAHIST baixados manualmente. */
+  importDir?: string;
 }
 
 export class DataHub {
   readonly history: HistoryStore;
   readonly dividends: DividendStore;
+  readonly stockDivs: StockDividendStore;
   private p: Persisted;
   private universeCache: UniverseResponse | null = null;
   private running: Promise<void> | null = null;
@@ -57,9 +70,10 @@ export class DataHub {
     this.history = new HistoryStore(join(o.dir, 'history.json'));
     this.dividends = new DividendStore(join(o.dir, 'dividends.json'));
     const empty = { lastSuccess: null, lastAttempt: null, lastError: null, asOf: null };
-    this.p = { status: { cotacoes: { ...empty }, cvm: { ...empty }, rendimentos: { ...empty }, macro: { ...empty }, global: { ...empty } }, cvm: {}, macro: null, global: null };
+    this.p = { status: { cotacoes: { ...empty }, cvm: { ...empty }, rendimentos: { ...empty }, acoes: { ...empty }, macro: { ...empty }, global: { ...empty } }, cvm: {}, macro: null, global: null };
     const f = join(o.dir, 'hub.json');
-    if (existsSync(f)) { try { this.p = { ...this.p, ...JSON.parse(readFileSync(f, 'utf8')) }; } catch { /* inicia vazio */ } }
+    if (existsSync(f)) { try { const v = JSON.parse(readFileSync(f, 'utf8')); this.p = { ...this.p, ...v, status: { ...this.p.status, ...(v.status ?? {}) } }; } catch { /* inicia vazio */ } }
+    this.stockDivs = new StockDividendStore(join(o.dir, 'stock-dividends.json'));
   }
 
   private save() {
@@ -92,6 +106,7 @@ export class DataHub {
       await this.step('cotacoes', () => this.updateQuotes());
       await this.step('cvm', () => this.updateCvm());
       await this.step('rendimentos', () => this.updateDividends());
+      await this.step('acoes', () => this.updateStockDividends());
       await this.step('macro', () => this.updateMacro());
       await this.step('global', () => this.updateGlobal());
     })().finally(() => { this.running = null; });
@@ -109,8 +124,35 @@ export class DataHub {
     return first ? strFromU8(first, true) : null;
   }
 
-  /** Carga inicial por arquivos mensais + incremental por arquivos diários. */
+  get importDir() { return this.o.importDir ?? join(this.o.dir, '..', 'import'); }
+  get automatedQuotes() { return Boolean(this.o.b3AutomatedDownload); }
+
+  /** Adiciona registros de um arquivo COTAHIST (importação manual ou upload). */
+  ingestRecords(recs: CotahistRecord[]): number {
+    const byDate = new Map<string, CotahistRecord[]>();
+    for (const r of recs) (byDate.get(r.date) ?? byDate.set(r.date, []).get(r.date)!).push(r);
+    for (const [d, rs] of [...byDate].sort()) this.history.addSession(d, rs);
+    this.history.save();
+    this.universeCache = null;
+    return byDate.size;
+  }
+
+  private importQuotes(): string | null {
+    const done = (this.p.imported ??= {});
+    const files = pendingImports(this.importDir, done);
+    for (const f of files) {
+      const n = this.ingestRecords(readCotahistFile(readImport(f.path), f.name));
+      done[f.name] = f.key;
+      this.log(`cotações: ${f.name} importado (${n} pregões)`);
+    }
+    if (!this.history.dates.length) throw new Error(`Nenhuma cotação importada. Baixe arquivos COTAHIST no site da B3 e coloque em ${this.importDir} (ou use "Importar" em Status dos dados).`);
+    return this.history.dates[this.history.dates.length - 1] ?? null;
+  }
+
+  /** Cotações: importação de arquivos baixados manualmente (padrão) ou download autorizado. */
   private async updateQuotes(): Promise<string | null> {
+    if (!this.o.b3AutomatedDownload) return this.importQuotes();
+    try { this.importQuotes(); } catch { /* sem arquivos importados: segue com o download autorizado */ }
     const today = saoPauloDate(this.now());
     const months = this.o.historyMonths ?? 13;
     if (this.history.dates.length < 15) {
@@ -163,6 +205,23 @@ export class DataHub {
     return s.coveredTo;
   }
 
+  /** Dividendos/JCP de ações: um pedido por emissor das ações com negócio recente. */
+  private async updateStockDividends(): Promise<string | null> {
+    const byIssuer = new Map<string, Set<string>>();
+    const recent = this.history.dates[Math.max(0, this.history.dates.length - 10)] ?? '';
+    for (const t of this.history.tickers()) {
+      const m = this.history.meta(t);
+      const code = issuerOf(t);
+      const pts = this.history.points(t);
+      if (!m || m.cls !== 'ACAO' || !code || !pts.length || pts[pts.length - 1].date < recent) continue;
+      (byIssuer.get(code) ?? byIssuer.set(code, new Set()).get(code)!).add(m.isin);
+    }
+    if (!byIssuer.size) throw new Error('sem ações no histórico de cotações (importe arquivos COTAHIST primeiro)');
+    const r = await syncStockDividends(this.stockDivs, this.o.fetchImpl, [...byIssuer].map(([code, s]) => ({ code, isins: [...s] })), { pauseMs: this.o.pauseMs ?? 300, log: this.log });
+    this.log(`proventos de ações: ${r.ok} emissores atualizados, ${r.failed} falhas`);
+    return saoPauloDate(this.now());
+  }
+
   private async updateMacro(): Promise<string | null> {
     const today = saoPauloDate(this.now());
     const indicators = await fetchSgs(this.o.fetchImpl, today);
@@ -198,7 +257,11 @@ export class DataHub {
 
   // ------------------------------- leitura -------------------------------
   status(): DatasetStatus[] {
-    return (Object.keys(LABELS) as Key[]).map((k) => ({ key: k, label: LABELS[k], schedule: 'Diário às 9h e 21h30 (Brasília)', ...this.p.status[k] }));
+    return (Object.keys(LABELS) as Key[]).map((k) => ({
+      key: k, label: k === 'cotacoes' && this.o.b3AutomatedDownload ? 'Cotações B3 (COTAHIST, download autorizado)' : LABELS[k],
+      schedule: k === 'cotacoes' && !this.o.b3AutomatedDownload ? 'Processa arquivos importados às 9h e 21h30 e a cada upload' : 'Diário às 9h e 21h30 (Brasília)',
+      ...this.p.status[k],
+    }));
   }
   macro(): MacroResponse | null { return this.p.macro; }
   global(): GlobalRatesResponse | null { return this.p.global; }
@@ -217,6 +280,18 @@ export class DataHub {
       chg1d: pctChange(pts, 1), chg1m: pctChange(pts, 21), chg12m: pctChange(pts, 252) ?? (pts.length > 200 ? pctChange(pts, pts.length - 1) : null),
       avgVolume21: averageVolume(pts, 21), vol12m: annualizedVolatility(pts), maxDrawdown12m: maxDrawdown(pts), sessions: pts.length,
     };
+    if (meta.cls === 'ACAO') {
+      const ev = this.stockDivs.get(meta.isin);
+      if (ev.length) {
+        const today = saoPauloDate(this.now());
+        const last = ev[ev.length - 1];
+        const dy = dividendYield12m(ev.map((e) => ({ amount: e.amount, recordDate: e.recordDate, paymentDate: e.paymentDate ?? '' })), m.close, today);
+        Object.assign(m, {
+          lastDividend: { amount: last.amount, recordDate: last.recordDate, paymentDate: last.paymentDate ?? '', announced: !last.paymentDate || last.paymentDate > today, kind: last.kind },
+          dy12m: dy.dy, dividends12mCount: dy.count, dyAnnualizedLast: null,
+        });
+      }
+    }
     if (meta.cls === 'FII' || meta.cls === 'FIAGRO') {
       const info = this.fiiByIsin(meta.isin);
       const divs = this.dividends.get(ticker);
@@ -255,7 +330,9 @@ export class DataHub {
     return {
       metrics,
       history: this.history.points(ticker),
-      dividends: this.dividends.get(ticker).map((d) => ({ amount: d.amount, recordDate: d.recordDate, paymentDate: d.paymentDate, taxExempt: d.taxExempt, source: `Fundos.NET — aviso entregue em ${d.deliveredAt}`, sourceUrl: docLink(d.docId) })),
+      dividends: metrics.cls === 'ACAO'
+        ? this.stockDivs.get(metrics.isin).map((d) => ({ amount: d.amount, recordDate: d.recordDate, paymentDate: d.paymentDate ?? '', kind: d.kind, source: `B3 — Empresas Listadas (${d.kind === 'JCP' ? 'JCP' : d.kind.toLowerCase()}, ${d.relatedTo || 'sem referência'})` }))
+        : this.dividends.get(ticker).map((d) => ({ amount: d.amount, recordDate: d.recordDate, paymentDate: d.paymentDate, taxExempt: d.taxExempt, source: `Fundos.NET — aviso entregue em ${d.deliveredAt}`, sourceUrl: docLink(d.docId) })),
     };
   }
 }

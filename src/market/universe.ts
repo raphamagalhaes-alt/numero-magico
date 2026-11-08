@@ -27,7 +27,7 @@ export interface AssetMetrics {
   sessions: number;
   // ---- apenas FII/Fiagro (Fundos.NET + CVM) ----
   cnpj?: string;
-  lastDividend?: { amount: number; recordDate: string; paymentDate: string; announced: boolean } | null;
+  lastDividend?: { amount: number; recordDate: string; paymentDate: string; announced: boolean; kind?: 'DIVIDENDO' | 'JCP' | 'RENDIMENTO' | 'OUTRO' } | null;
   /** Soma dos rendimentos com data-com nos últimos 12 meses / preço (cobertura informada). */
   dy12m?: number | null;
   dividends12mCount?: number;
@@ -55,7 +55,7 @@ export interface UniverseResponse {
 export interface AssetDetail {
   metrics: AssetMetrics;
   history: { date: string; close: number; volume: number }[];
-  dividends: { amount: number; recordDate: string; paymentDate: string; taxExempt?: boolean; source: string; sourceUrl?: string }[];
+  dividends: { amount: number; recordDate: string; paymentDate: string; taxExempt?: boolean; kind?: string; source: string; sourceUrl?: string }[];
 }
 
 export interface MacroSeriesPoint { date: string; value: number }
