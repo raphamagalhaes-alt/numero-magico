@@ -78,6 +78,12 @@ test('site: chave brapi pessoal busca histórico e fechamento dos ativos acompan
   await page.goto('./#/explorar');
   await page.getByRole('button', { name: /^Todos/ }).click();
   await expect(page.locator('[data-testid=exp-table] tbody tr[data-ticker=PETR4]')).toContainText('R$ 40,50');
+  // Simulador com a chave: ação sem rendimento na brapi gratuita → aplica o PREÇO real (antes ficava em "sem cotação")
+  await page.goto('./#/simulador?t=VALE3');
+  await page.reload();
+  await expect(page.getByTestId('in-price')).toHaveValue('9,10');
+  await expect(page.getByTestId('status-badge')).toContainText('rendimento informado por você');
+  await expect(page.getByTestId('status-badge')).not.toContainText('Sem cotação');
   // Aporte do mês: 10 cotas a R$ 40,50 + R$ 500 → compra 12 cotas inteiras (R$ 486,00), sobra R$ 14,00
   await page.goto('./#/carteira');
   await expect(page.locator('[data-testid=pf-contrib] tr[data-ticker=PETR4]')).toContainText('12 cotas');
@@ -145,4 +151,60 @@ test('site: Liberdade mostra quais contas a renda já paga, a próxima e a linha
   // persiste no aparelho
   await page.reload();
   await expect(page.getByTestId('fr-extra-income')).toHaveValue('400');
+});
+
+test('site: Carteira com calendário de renda e teste da renda fixa; Diário de decisões; Metas da família', async ({ page }) => {
+  const ext = watchNetwork(page);
+  await page.goto('./#/dados');
+  const txt = readFileSync('server/fixtures/cotahist-multi-2026-11-06.txt', 'latin1');
+  await page.getByTestId('import-file').setInputFiles({ name: 'COTAHIST_D06112026.TXT', mimeType: 'text/plain', buffer: Buffer.from(txt, 'latin1') });
+  await expect(page.getByTestId('import-quotes')).toContainText('1 pregões');
+  // MXRF11 abre no exemplo didático; um toque troca para a cotação real
+  await page.goto('./#/simulador');
+  await page.getByTestId('use-real').click();
+  await expect(page.getByTestId('status-badge')).toContainText('Dados de mercado');
+  await expect(page.getByTestId('in-price')).toHaveValue('9,10');
+  await page.evaluate(() => localStorage.setItem('mxrf:positions', JSON.stringify([{ ticker: 'MXRF11', shares: 1000 }])));
+  await page.goto('./#/carteira');
+  // calendário: 12 meses projetados a partir dos rendimentos estimados (CVM) do fundo
+  const cal = page.getByTestId('income-calendar');
+  await expect(cal.locator('[data-ym]')).toHaveCount(12);
+  await expect(page.getByTestId('cal-weakest')).toContainText('Mês mais fraco');
+  // teste da renda fixa compara com Selic líquida (dados abertos do BCB)
+  await expect(page.getByTestId('fixed-income-test')).toContainText('Tesouro Selic');
+  await expect(page.getByTestId('fit-verdict')).toContainText('Tesouro Selic líquido');
+
+  // Diário: alerta de impulso quando falta reserva / há emoção
+  await page.goto('./#/diario');
+  await page.getByTestId('jr-ticker').fill('mxrf11');
+  await page.getByTestId('jr-reason').fill('Completa a parte de imobiliários da minha divisão e paga todo mês.');
+  await expect(page.getByTestId('jr-impulse')).toBeVisible();
+  for (const i of [0, 1, 2, 3, 4]) await page.getByTestId(`jr-q${i}`).check();
+  await expect(page.getByTestId('jr-impulse')).toHaveCount(0);
+  await page.getByTestId('jr-save').click();
+  const item = page.getByTestId('jr-list').locator('li').first();
+  await expect(item).toContainText('Comprar MXRF11');
+  await expect(item).toContainText('R$ 9,10'); // preço preenchido automaticamente
+  await expect(item).toContainText('5/5');
+  // revisão vencida aparece como aviso em todas as páginas
+  await page.evaluate(() => { const l = JSON.parse(localStorage.getItem('mxrf:journal')!); l[0].revisit = '2020-01-01'; localStorage.setItem('mxrf:journal', JSON.stringify(l)); });
+  await page.goto('./#/mercados');
+  await page.getByTestId('journal-banner').click();
+  await expect(page.getByTestId('jr-review')).toBeVisible();
+
+  // Metas da família: código de ida e volta, sem valores por padrão
+  await page.goto('./#/liberdade');
+  await page.getByTestId('fam-name').fill('Rapha');
+  const code = (await page.getByTestId('fam-code').textContent())!;
+  expect(code).toMatch(/^NM1:/);
+  const other = code; // simula o código recebido de outra pessoa
+  await page.getByTestId('fam-name').fill('Mãe');
+  await page.getByTestId('fam-paste').fill(`Olha o meu: ${other}`);
+  await page.getByTestId('fam-add').click();
+  await expect(page.getByTestId('fam-board')).toContainText('Rapha');
+  await expect(page.getByTestId('fam-board')).toContainText('Mãe (você)');
+  await page.getByTestId('fam-paste').fill('código errado');
+  await page.getByTestId('fam-add').click();
+  await expect(page.getByTestId('family')).toContainText('Código inválido');
+  expect(ext.filter((h) => B3.test(h))).toEqual([]);
 });

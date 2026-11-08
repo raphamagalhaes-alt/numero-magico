@@ -6,6 +6,7 @@ import { fmtBRL, fmtPct } from '../format';
 import { go } from '../route';
 import { loadRaw, save } from '../storage';
 import { loadPositions, portfolioTotals } from './Portfolio';
+import { FamilyGoals } from '../components/FamilyGoals';
 
 const KEY = 'mxrf:freedom';
 interface State { bills: Bill[]; extraIncome: string; extraCapital: string; contribution: string; rate: string; years: string }
@@ -142,6 +143,8 @@ export function FreedomPage() {
           ))}
         </ol>
       </div>
+
+      <FamilyGoals me={{ pct: cov.pct, covered: cov.covered.map((b) => b.name), next: cov.next?.bill.name ?? null, income, total: cov.total }} />
 
       <details className="text-xs text-mist-500">
         <summary className="cursor-pointer">Como calculamos</summary>

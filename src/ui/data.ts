@@ -7,6 +7,8 @@ const TTL = 30_000;
 const listeners = new Set<() => void>();
 /** Descarta dados em memória (após importar cotações, salvar chave etc.) e avisa as telas abertas. */
 export function invalidateData() { cache.clear(); for (const l of listeners) l(); }
+// modo site: cotações que chegam em segundo plano (chave brapi) atualizam a tela sozinhas
+if (typeof window !== 'undefined') window.addEventListener('nm:data-updated', () => invalidateData());
 
 async function getJson<T>(path: string): Promise<T> {
   let res: Response;

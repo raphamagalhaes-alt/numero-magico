@@ -8,6 +8,7 @@ import { fmtBRL, fmtDecimal, fmtInt, fmtPct } from '../format';
 import { go } from '../route';
 import { loadRaw, save } from '../storage';
 import { AlertChannels } from '../components/AlertChannels';
+import { FixedIncomeCheck, IncomeCalendar } from '../components/IncomeInsights';
 
 export interface Position { ticker: string; shares: number }
 const POS_KEY = 'mxrf:positions';
@@ -133,7 +134,7 @@ export function PortfolioPage() {
     <section aria-labelledby="pf-title" className="flex flex-col gap-4">
       <div>
         <h1 id="pf-title" className="flex items-center gap-2 text-xl font-semibold"><Wallet size={20} className="text-gold-400" aria-hidden />Minha carteira</h1>
-        <p className="text-sm text-mist-400">Informe quantas cotas você já tem. Mostramos o quanto falta para o número mágico de cada fundo com o último rendimento oficial, e avisamos quando sair um novo aviso de rendimento. Os dados ficam apenas neste navegador.</p>
+        <p className="text-sm text-mist-400">Informe quantas cotas você já tem. Mostramos o quanto falta para o número mágico de cada fundo com o último rendimento oficial, e avisamos quando sair um novo aviso de rendimento. Os dados ficam apenas neste navegador. Antes de comprar ou vender, anote o motivo no <button type="button" className="underline hover:text-gold-300" onClick={() => go('diario')}>Diário de decisões</button>.</p>
       </div>
       {alerts.length > 0 && (
         <div className="card flex flex-wrap items-center gap-3 p-4 ring-gold-500/40" role="status" data-testid="pf-alerts">
@@ -192,6 +193,8 @@ export function PortfolioPage() {
           </table>
         </div>
       )}
+      {positions.length > 0 && <FixedIncomeCheck {...portfolioTotals(positions, assets)} />}
+      <IncomeCalendar positions={positions.filter((p) => assets.some((a) => a.ticker === p.ticker))} />
       <MonthlyContribution positions={positions} assets={assets} />
       <AlertChannels tickers={positions.map((p) => p.ticker)} />
       <p className="text-[11px] text-mist-500">Renda estimada: FIIs com o último rendimento (Fundos.NET); ações com a média mensal de dividendos + JCP brutos dos últimos 12 meses (B3 — Empresas Listadas). Proventos futuros podem ser diferentes. ETFs/BDRs aparecem só com valor.</p>

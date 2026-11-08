@@ -113,16 +113,17 @@ function marketStatus(t: string): MarketStatus {
 }
 
 /** Cotações pela chave pessoal brapi: histórico de 3 meses na 1ª vez, depois só o fechamento. */
-async function refreshBrapi(fetchOrig: typeof fetch, force: boolean): Promise<string> {
+async function refreshBrapi(fetchOrig: typeof fetch, force: boolean, only?: string[]): Promise<string> {
   const token = settings.brapiToken;
-  if (!token || !settings.watchlist.length) return 'nada a atualizar';
+  const list = only ?? settings.watchlist;
+  if (!token || !list.length) return 'nada a atualizar';
   const day = today();
   const closedToday = isTradingDay(day) && saoPauloHour(new Date()) >= 19;
   const key = closedToday ? `${day}-pm` : day;
-  if (!force && settings.lastBrapi === key) return 'já atualizado hoje';
+  if (!force && !only && settings.lastBrapi === key) return 'já atualizado hoje';
   let updated = 0;
   const errors: string[] = [];
-  for (const [i, t] of settings.watchlist.slice(0, 60).entries()) {
+  for (const [i, t] of list.slice(0, 60).entries()) {
     if (i) await new Promise((r) => setTimeout(r, 300));
     const hist = !history.meta(t) || history.points(t).length < 20;
     try {
@@ -149,10 +150,12 @@ async function refreshBrapi(fetchOrig: typeof fetch, force: boolean): Promise<st
       if (points.length) { quoteSource[t] = 'brapi (sua chave pessoal)'; updated++; }
     } catch (e) { errors.push(`${t}: ${e instanceof Error ? e.message : e}`); }
   }
-  settings.lastBrapi = key;
+  if (!only) settings.lastBrapi = key;
   settings.brapiNote = errors.length ? errors.slice(0, 3).join('; ') : null;
   await Promise.all([saveHistory(), saveSettings()]);
   version++;
+  // avisa a interface para recarregar (preços chegaram em segundo plano)
+  if (updated && typeof window !== 'undefined') window.dispatchEvent(new Event('nm:data-updated'));
   return `${updated} ativos atualizados${errors.length ? ` · ${errors.length} avisos` : ''}`;
 }
 
@@ -189,6 +192,10 @@ async function handle(url: URL, init: RequestInit | undefined, fetchOrig: typeof
     if (mk[2]) {
       if (!settings.watchlist.includes(mk[1])) { settings.watchlist = [...settings.watchlist, mk[1]].slice(-60); await saveSettings(); }
       await refreshBrapi(fetchOrig, true);
+    } else if (settings.brapiToken && !history.points(mk[1]).length) {
+      // 1ª consulta de um ativo com a chave configurada: busca agora, antes de responder
+      if (!settings.watchlist.includes(mk[1])) { settings.watchlist = [...settings.watchlist, mk[1]].slice(-60); await saveSettings(); }
+      await refreshBrapi(fetchOrig, true, [mk[1]]);
     }
     return json(marketStatus(mk[1]));
   }

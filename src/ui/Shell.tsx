@@ -10,6 +10,7 @@ import { PortfolioPage, loadPositions, newDividendAlerts } from './pages/Portfol
 import { DataStatusPage } from './pages/DataStatus';
 import { MarketsPage } from './pages/Markets';
 import { FreedomPage } from './pages/Freedom';
+import { JournalPage, dueReviews, loadJournal } from './pages/Journal';
 import { LegalPage } from './pages/Legal';
 import { TERMS_KEY, TERMS_VERSION } from './legal';
 import { Onboarding, ONBOARD_KEY } from './components/Onboarding';
@@ -81,6 +82,12 @@ export function Shell() {
         })}
       </nav>
 
+      {route.page !== 'diario' && dueReviews(loadJournal()).length > 0 && (
+        <button type="button" className="no-print card flex items-center gap-2 p-3 text-left text-xs text-gold-300 ring-gold-500/40" onClick={() => go('diario')} data-testid="journal-banner">
+          <Bell size={14} aria-hidden />Chegou a hora de revisar uma decisão do seu Diário — o motivo ainda vale?
+        </button>
+      )}
+
       {alerts.length > 0 && route.page !== 'carteira' && (
         <button type="button" className="no-print card flex items-center gap-2 p-3 text-left text-xs text-gold-300 ring-gold-500/40" onClick={() => go('carteira')} data-testid="alert-banner">
           <Bell size={14} aria-hidden />Novo rendimento anunciado para {alerts.map((a) => a.ticker).join(', ')} na sua carteira — ver detalhes
@@ -91,6 +98,7 @@ export function Shell() {
         {route.page === 'simulador' && <SimulatorPage key={simKey} requestedTicker={route.params.get('t')} />}
         {route.page === 'mercados' && <MarketsPage />}
         {route.page === 'liberdade' && <FreedomPage />}
+        {route.page === 'diario' && <JournalPage />}
         {route.page === 'explorar' && <ExplorerPage />}
         {route.page === 'comparar' && <ComparePage tickersParam={route.params.get('t')} />}
         {route.page === 'juros' && <RatesPage />}

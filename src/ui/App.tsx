@@ -112,19 +112,22 @@ export function SimulatorPage({ requestedTicker }: { requestedTicker?: string | 
 
   const applySnapshot = useCallback((s: MarketSnapshot) => {
     const div = defaultDividend(s);
-    if (!s.lastTrade || !div || s.ticker !== tickerRef.current) return; // nunca aplica dados de outro ativo
-    const pay = div.event.paymentDate.slice(0, 7);
+    if (!s.lastTrade || s.ticker !== tickerRef.current) return; // nunca aplica dados de outro ativo
+    const pay = div?.event.paymentDate.slice(0, 7) ?? '';
+    // sem rendimento oficial (ex.: ações na brapi gratuita): aplica o PREÇO real e mantém o rendimento informado
     setForm((f) => ({
       ...f,
       price: toBR(s.lastTrade!.price),
-      dividend: toBR(div.event.amountPerShare),
-      // o 1º pagamento simulado é o do rendimento usado; prazo = observado no aviso oficial
-      startMonth: /^\d{4}-\d{2}$/.test(pay) ? pay : f.startMonth,
-      paymentLag: s.paymentLagBusinessDays !== undefined ? String(s.paymentLagBusinessDays) : f.paymentLag,
+      ...(div ? {
+        dividend: toBR(div.event.amountPerShare),
+        // o 1º pagamento simulado é o do rendimento usado; prazo = observado no aviso oficial
+        startMonth: /^\d{4}-\d{2}$/.test(pay) ? pay : f.startMonth,
+        paymentLag: s.paymentLagBusinessDays !== undefined ? String(s.paymentLagBusinessDays) : f.paymentLag,
+      } : {}),
     }));
     const session = s.lastTrade.sessionDate ?? s.lastTrade.tradedAt.slice(0, 10);
     const [y, m, d] = session.split('-');
-    const divLabel = div.event.estimated === 'cvm' ? 'rendimento estimado (CVM)' : div.event.estimated === 'media12m' ? 'média mensal de proventos 12m' : `rendimento ${div.kind}`;
+    const divLabel = !div ? 'rendimento informado por você' : div.event.estimated === 'cvm' ? 'rendimento estimado (CVM)' : div.event.estimated === 'media12m' ? 'média mensal de proventos 12m' : `rendimento ${div.kind}`;
     const label = `${s.ticker} · ${s.lastTrade.kind === 'fechamento' ? 'fechamento' : 'preço'} de ${d}/${m}/${y} · ${divLabel}`;
     setPrefs((p) => ({ ...p, status: 'market', mode: 'market', marketLabel: label }));
   }, []);
@@ -243,6 +246,7 @@ export function SimulatorPage({ requestedTicker }: { requestedTicker?: string | 
         {prefs.mode === 'demo' && hasDemo && prefs.status === 'demo' && (
           <p className="no-print rounded-lg bg-ink-850 p-3 text-xs text-mist-400 ring-1 ring-white/5">
             Modo Demonstração: valores do exemplo didático (preço R$ 8,89, dividendo R$ 0,10). <strong className="text-mist-200">Não são cotações reais</strong> — para dados oficiais da B3 e do Fundos.NET, use “Dados de mercado”.
+            {' '}<button type="button" className="btn btn-gold mt-2 !py-1 text-xs" onClick={() => setMode('market')} data-testid="use-real">Usar cotação real</button>
           </p>
         )}
         {prefs.mode === 'market' && (
