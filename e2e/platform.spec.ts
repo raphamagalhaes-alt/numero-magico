@@ -68,6 +68,9 @@ test('onboarding em 3 perguntas personaliza a simulação', async ({ page }) => 
   await page.getByTestId('ob-goal').fill('2.000');
   await page.getByTestId('ob-contrib').fill('500');
   await page.getByTestId('ob-go').click();
+  await expect(page.getByRole('alert')).toContainText('aceita os termos');
+  await page.getByTestId('ob-agree').check();
+  await page.getByTestId('ob-go').click();
   await expect(page.getByRole('tab', { name: 'Aportes mensais' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('in-goal')).toHaveValue('2.000');
   await expect(page.getByTestId('in-contribution')).toHaveValue('500');
@@ -139,4 +142,16 @@ test('carteira: canais de alerta gratuitos (calendário ICS, RSS)', async ({ pag
   expect(body).toContain('PETR4: data-com');
   const rss = await request.get('/api/alerts/feed.xml?t=MXRF11');
   expect(await rss.text()).toContain('<rss version="2.0">');
+});
+
+test('termos, riscos, privacidade e fontes acessíveis pelo rodapé', async ({ page }) => {
+  await page.goto('/#/simulador');
+  await page.getByTestId('legal-link').click();
+  const legal = page.getByTestId('legal-page');
+  await expect(legal).toContainText('Política de privacidade');
+  await expect(legal).toContainText('Não coletamos dados pessoais');
+  await expect(legal).toContainText('Resoluções CVM');
+  await expect(legal).toContainText('Open Database License (ODbL)');
+  await expect(legal).toContainText('Source: ECB statistics.');
+  await expect(page.getByTestId('erase-data')).toBeVisible();
 });

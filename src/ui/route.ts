@@ -1,7 +1,7 @@
 /** Roteamento por hash (#/explorar?t=...), sem dependências e compatível com hospedagem estática. */
 import { useEffect, useState } from 'react';
 
-export type Page = 'simulador' | 'explorar' | 'comparar' | 'juros' | 'carteira' | 'dados';
+export type Page = 'simulador' | 'explorar' | 'comparar' | 'juros' | 'carteira' | 'dados' | 'termos';
 export const PAGES: { id: Page; label: string }[] = [
   { id: 'simulador', label: 'Simulador' },
   { id: 'explorar', label: 'Explorar ativos' },
@@ -15,7 +15,7 @@ export interface Route { page: Page; params: URLSearchParams }
 
 export function parseHash(hash: string): Route {
   const [p, q] = hash.replace(/^#\/?/, '').split('?');
-  const page = (PAGES.some((x) => x.id === p) ? p : 'simulador') as Page;
+  const page = (PAGES.some((x) => x.id === p) || p === 'termos' ? p : 'simulador') as Page;
   return { page, params: new URLSearchParams(q ?? '') };
 }
 

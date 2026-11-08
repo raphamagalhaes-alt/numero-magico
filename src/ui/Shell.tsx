@@ -8,6 +8,8 @@ import { ComparePage } from './pages/Compare';
 import { RatesPage } from './pages/Rates';
 import { PortfolioPage, loadPositions, newDividendAlerts } from './pages/Portfolio';
 import { DataStatusPage } from './pages/DataStatus';
+import { LegalPage } from './pages/Legal';
+import { TERMS_KEY, TERMS_VERSION } from './legal';
 import { Onboarding, ONBOARD_KEY } from './components/Onboarding';
 import { DISCLAIMER } from './report';
 import { PAGES, go, useRoute } from './route';
@@ -19,7 +21,10 @@ import { InstallApp } from './components/InstallApp';
 export function Shell() {
   const route = useRoute();
   const [simKey, setSimKey] = useState(0);
-  const [onboard, setOnboard] = useState(() => window.location.search.includes('onboarding=1') || (!loadRaw(ONBOARD_KEY, false) && !window.location.search.includes('t=') && !window.navigator.webdriver));
+  const forced = window.location.search.includes('onboarding=1');
+  const [onboard, setOnboard] = useState(() => forced || (!window.navigator.webdriver && (!loadRaw(ONBOARD_KEY, false) || loadRaw<string>(TERMS_KEY, '') !== TERMS_VERSION)));
+  // link compartilhado (?t=) ou quem já configurou: pede só o aceite, sem refazer as perguntas
+  const termsOnly = !forced && (loadRaw(ONBOARD_KEY, false) || window.location.search.includes('t='));
   const u = useUniverse();
   // recalculado a cada renderização (barato): reflete "marcar como visto" ao voltar da carteira
   const alerts = u.data ? newDividendAlerts(loadPositions(), u.data.assets) : [];
@@ -70,14 +75,16 @@ export function Shell() {
         {route.page === 'juros' && <RatesPage />}
         {route.page === 'carteira' && <PortfolioPage />}
         {route.page === 'dados' && <DataStatusPage />}
+        {route.page === 'termos' && <LegalPage />}
       </main>
 
       <footer className="mt-auto flex flex-col gap-2 border-t border-white/5 pt-6 text-xs text-mist-500">
         <p data-testid="disclaimer" className="text-mist-400">{DISCLAIMER}</p>
-        <p>Fontes oficiais: B3 (COTAHIST), Fundos.NET (B3/CVM), CVM Dados Abertos, Banco Central do Brasil (SGS), Tesouro Transparente, BIS, Federal Reserve Bank of New York e Banco Central Europeu. Ferramenta independente, sem vínculo com essas instituições. Filtros e comparações são objetivos e não constituem recomendação.</p>
+        <p>Fontes oficiais: B3 (COTAHIST), Fundos.NET (B3/CVM), CVM Dados Abertos, Banco Central do Brasil (SGS), Tesouro Transparente, BIS, Federal Reserve Bank of New York e Banco Central Europeu. Ferramenta independente, sem vínculo com essas instituições. Filtros e comparações são objetivos e não constituem recomendação. Base open-data.json sob ODbL. Source: BIS. Source: ECB statistics.</p>
+        <p className="flex flex-wrap gap-3"><a href="#/termos" className="text-gold-300 underline" data-testid="legal-link">Termos de uso · Riscos · Privacidade (LGPD) · Fontes e licenças</a><span>Uso pessoal e gratuito, sem fins comerciais. Nenhum dado pessoal é coletado.</span></p>
       </footer>
 
-      {onboard && <Onboarding onDone={(t) => { setOnboard(false); setSimKey((k) => k + 1); go('simulador', t ? { t } : undefined); }} />}
+      {onboard && route.page !== 'termos' && <Onboarding termsOnly={termsOnly} onDone={(t) => { if (termsOnly) { setOnboard(false); return; } setOnboard(false); setSimKey((k) => k + 1); go('simulador', t ? { t } : undefined); }} />}
     </div>
   );
 }

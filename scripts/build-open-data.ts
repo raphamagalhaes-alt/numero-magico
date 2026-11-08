@@ -56,7 +56,8 @@ try {
   rec('global', 'Juros de bancos centrais (BIS, Fed NY, BCE)', global.rates.reduce((m, r) => (r.date > m ? r.date : m), ''));
 } catch (e) { rec('global', 'Juros de bancos centrais', null, e); }
 
-const data: OpenData = { builtAt: now.toISOString(), funds, macro, global, status };
+const LICENSE = 'Base derivada de: CVM Dados Abertos (dados.cvm.gov.br) e Tesouro Transparente (tesourotransparente.gov.br), licenciados sob Open Database License (ODbL) v1.0 — esta base derivada também é disponibilizada sob ODbL v1.0 (https://opendatacommons.org/licenses/odbl/1-0/); Banco Central do Brasil (SGS); Source: BIS; Federal Reserve Bank of New York; Source: ECB statistics. Valores de rendimento marcados como estimados são cálculos próprios, não dados oficiais. Sem vínculo ou endosso dessas instituições.';
+const data: OpenData = { builtAt: now.toISOString(), license: LICENSE, funds, macro, global, status };
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, JSON.stringify(data));
 console.log(`open-data: ${funds.length} fundos · macro ${macro ? 'ok' : 'falhou'} · juros ${global?.rates.length ?? 0} países → ${out}`);

@@ -9,6 +9,8 @@ export interface OpenFund {
 }
 export interface OpenData {
   builtAt: string;
+  /** Aviso de licença e atribuição das bases de origem (ODbL e demais). */
+  license?: string;
   funds: OpenFund[];
   macro: MacroResponse | null;
   global: GlobalRatesResponse | null;

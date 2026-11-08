@@ -138,6 +138,14 @@ e2e/             Testes Playwright
 - Estratégias com retirada: a parcela reinvestida é arredondada em centavos e o restante conta como dinheiro retirado. O retirado fica fora do patrimônio investido, então não há dupla contagem.
 - Cenários: as variações anuais de preço e dividendo entram a cada 12 meses. O preço é arredondado em centavos. O dividendo derivado é **truncado** em 6 casas, para nunca criar provento artificial.
 
+## Termos, privacidade (LGPD) e licenças
+
+O app tem uma página **Termos** (`#/termos`, link no rodapé) com Termos de uso, Aviso de riscos e
+limitação de responsabilidade, Política de privacidade (LGPD) com botão para apagar os dados do
+aparelho, e Fontes/licenças (ODbL da CVM e do Tesouro, BIS, Fed NY, BCE, BCB). O aceite é obrigatório
+no primeiro acesso e é pedido de novo quando a versão dos termos muda (`src/ui/legal.ts`). Resumo em
+[`NOTICE.md`](NOTICE.md).
+
 ## Termos de uso da B3 (importante)
 
 A B3 **proíbe a coleta automatizada** da página de Cotações Históricas, e os dados do site dela são de **uso exclusivamente pessoal**. Publicar cotações exige contrato com a B3. Detalhes e trechos literais estão em [`docs/LICENCA-B3.md`](docs/LICENCA-B3.md).
