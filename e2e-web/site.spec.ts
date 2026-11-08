@@ -63,7 +63,7 @@ test('site: chave brapi pessoal busca histórico e fechamento dos ativos acompan
   const asked: string[] = [];
   await page.route('https://brapi.dev/**', (route) => {
     const u = new URL(route.request().url());
-    asked.push(u.pathname + '?' + [...u.searchParams.keys()].join(','));
+    asked.push(u.pathname + '?' + [...u.searchParams.keys()].join(',') + (route.request().headers()['authorization'] === 'Bearer minha-chave-pessoal-123' ? ' +auth' : ''));
     const t = u.pathname.split('/').pop()!;
     return route.fulfill({ json: brapiQuote(t, t === 'PETR4' ? 40.5 : 9.1), headers: { 'access-control-allow-origin': '*' } });
   });
@@ -74,10 +74,43 @@ test('site: chave brapi pessoal busca histórico e fechamento dos ativos acompan
   await page.getByRole('button', { name: 'Salvar chave' }).click();
   await expect(page.getByTestId('pq-status')).toContainText('Chave configurada (…-123)');
   await expect.poll(() => asked.length, { timeout: 15000 }).toBeGreaterThan(0);
-  expect(asked[0]).toMatch(/^\/api\/quote\/PETR4\?token,range,interval$/);
+  expect(asked[0]).toMatch(/^\/api\/quote\/PETR4\?range,interval \+auth$/);
   await page.goto('./#/explorar');
   await page.getByRole('button', { name: /^Todos/ }).click();
   await expect(page.locator('[data-testid=exp-table] tbody tr[data-ticker=PETR4]')).toContainText('R$ 40,50');
   expect(ext.filter((h) => B3.test(h))).toEqual([]);
   expect(ext.every((h) => h === 'brapi.dev')).toBe(true); // só a sua chave brapi; nada mais sai do aparelho
+});
+
+test('site: Mercados mostra principais ações do Brasil e do mundo, com alta/queda, usando só a chave do usuário', async ({ page }) => {
+  const ext = watchNetwork(page);
+  const auth: (string | undefined)[] = [];
+  await page.route('https://brapi.dev/**', (route) => {
+    const t = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop()!);
+    auth.push(route.request().headers()['authorization']);
+    const price = t === '^BVSP' ? 128000 : t === 'PETR4' ? 40.5 : 20;
+    const pctDay = t === 'PETR4' ? -1.5 : t === 'VALE3' ? 2.3 : 0.4;
+    const j = brapiQuote(t, price);
+    Object.assign(j.results[0], { regularMarketChangePercent: pctDay, regularMarketChange: price * pctDay / 100 });
+    return route.fulfill({ json: j, headers: { 'access-control-allow-origin': '*' } });
+  });
+  await page.goto('./#/mercados');
+  await expect(page.getByTestId('mk-setup')).toContainText('Google (Gmail)');
+  // sem chave: a lista já mostra as empresas, sem preço
+  await expect(page.getByTestId('mk-list')).toContainText('Petrobras');
+  await page.getByTestId('mk-key').fill('minha-chave-pessoal-123');
+  await page.getByTestId('mk-save').click();
+  const petr = page.locator('[data-testid=mk-list] li[data-symbol=PETR4]');
+  await expect(petr).toContainText('R$ 40,50');
+  await expect(petr).toContainText('-1,50%');
+  await expect(page.getByTestId('mk-headline')).toContainText('128.000');
+  await expect(page.getByTestId('mk-movers')).toContainText('Vale');
+  // mundo: EUA via BDR
+  await page.getByRole('tab', { name: 'EUA' }).click();
+  await expect(page.locator('[data-testid=mk-list] li[data-symbol=AAPL34]')).toContainText('R$ 20,00');
+  await page.getByTestId('mk-search').fill('toyota');
+  await expect(page.getByTestId('mk-list')).toContainText('TMCO34');
+  expect(auth.every((a) => a === 'Bearer minha-chave-pessoal-123')).toBe(true);
+  expect(ext.filter((h) => B3.test(h))).toEqual([]);
+  expect(ext.every((h) => h === 'brapi.dev')).toBe(true);
 });

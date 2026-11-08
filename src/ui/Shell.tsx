@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { getCompareList } from './pages/Explorer';
 import { loadRaw as loadRawPref } from './storage';
-import { BarChart3, Bell, Calculator, Search, GitCompare, Landmark, Wallet, RefreshCw, type LucideIcon } from 'lucide-react';
+import { BarChart3, Bell, Calculator, Search, GitCompare, Landmark, Wallet, RefreshCw, LineChart, type LucideIcon } from 'lucide-react';
 import { SimulatorPage } from './App';
 import { ExplorerPage } from './pages/Explorer';
 import { ComparePage } from './pages/Compare';
 import { RatesPage } from './pages/Rates';
 import { PortfolioPage, loadPositions, newDividendAlerts } from './pages/Portfolio';
 import { DataStatusPage } from './pages/DataStatus';
+import { MarketsPage } from './pages/Markets';
 import { LegalPage } from './pages/Legal';
 import { TERMS_KEY, TERMS_VERSION } from './legal';
 import { Onboarding, ONBOARD_KEY } from './components/Onboarding';
@@ -18,7 +19,9 @@ import { loadRaw } from './storage';
 import { IS_WEB } from './mode';
 import { InstallApp } from './components/InstallApp';
 
-const ICONS: Record<string, LucideIcon> = { simulador: Calculator, explorar: Search, comparar: GitCompare, juros: Landmark, carteira: Wallet, dados: RefreshCw };
+const ICONS: Record<string, LucideIcon> = { mercados: LineChart, simulador: Calculator, explorar: Search, comparar: GitCompare, juros: Landmark, carteira: Wallet, dados: RefreshCw };
+
+const BOTTOM = ['mercados', 'simulador', 'juros', 'carteira', 'dados'];
 
 export function Shell() {
   const route = useRoute();
@@ -64,8 +67,8 @@ export function Shell() {
         </nav>
       </header>
 
-      <nav aria-label="Menu" data-testid="bottom-nav" className="no-print fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-white/10 bg-ink-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
-        {PAGES.map((p) => {
+      <nav aria-label="Menu" data-testid="bottom-nav" className="no-print fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-ink-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
+        {PAGES.filter((p) => BOTTOM.includes(p.id)).map((p) => {
           const Icon = ICONS[p.id] ?? Calculator;
           const on = route.page === p.id;
           return (
@@ -85,6 +88,7 @@ export function Shell() {
 
       <main id="conteudo" className="flex flex-col gap-6">
         {route.page === 'simulador' && <SimulatorPage key={simKey} requestedTicker={route.params.get('t')} />}
+        {route.page === 'mercados' && <MarketsPage />}
         {route.page === 'explorar' && <ExplorerPage />}
         {route.page === 'comparar' && <ComparePage tickersParam={route.params.get('t')} />}
         {route.page === 'juros' && <RatesPage />}

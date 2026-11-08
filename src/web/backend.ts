@@ -15,7 +15,8 @@ import { readCotahistStream } from './cotahist-stream';
 import { idbGet, idbSet } from './idb';
 import type { OpenData, OpenFund } from './open-data';
 
-const BRAPI = (t: string, token: string, hist: boolean) => `https://brapi.dev/api/quote/${encodeURIComponent(t)}?token=${encodeURIComponent(token)}${hist ? '&range=3mo&interval=1d' : ''}`;
+// a chave vai no cabeçalho Authorization (não na URL), como recomenda a brapi
+const BRAPI = (t: string, hist: boolean) => `https://brapi.dev/api/quote/${encodeURIComponent(t)}${hist ? '?range=3mo&interval=1d' : ''}`;
 const TICKER = /^[A-Z0-9]{4}\d{1,2}$/;
 interface Settings { brapiToken: string | null; watchlist: string[]; lastBrapi?: string; brapiNote?: string | null; lastImport?: string | null }
 
@@ -125,7 +126,7 @@ async function refreshBrapi(fetchOrig: typeof fetch, force: boolean): Promise<st
     if (i) await new Promise((r) => setTimeout(r, 300));
     const hist = !history.meta(t) || history.points(t).length < 20;
     try {
-      const r = await fetchOrig(BRAPI(t, token, hist));
+      const r = await fetchOrig(BRAPI(t, hist), { headers: { Authorization: `Bearer ${token}` } });
       const body = await r.json().catch(() => null) as { results?: Record<string, unknown>[]; message?: string } | null;
       if (r.status === 401 || r.status === 403) { errors.push(`chave recusada (${body?.message ?? r.status})`); break; }
       if (r.status === 429) { errors.push('limite do plano gratuito atingido'); break; }
@@ -233,3 +234,5 @@ export function installWebBackend() {
   };
 }
 export const webVersion = () => version;
+/** Chave pessoal da brapi guardada neste aparelho (usada também pela página Mercados). */
+export const webBrapiToken = () => settings.brapiToken;

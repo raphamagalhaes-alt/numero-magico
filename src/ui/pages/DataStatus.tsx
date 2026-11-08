@@ -16,7 +16,7 @@ export function DataStatusPage() {
           <div className="card my-2 flex flex-col gap-2 p-4 text-sm text-mist-300" data-testid="quotes-howto">
             <h2 className="font-semibold text-mist-100">Como ter preços atualizados (escolha um jeito)</h2>
             <p><b className="text-gold-300">Jeito fácil — no celular ou computador:</b> 1) abra <a className="underline" href="https://brapi.dev/" target="_blank" rel="noreferrer">brapi.dev</a> e crie uma conta grátis; 2) copie a sua chave (token); 3) cole no quadro <b>"Cotações diárias automáticas"</b> logo abaixo e salve. Pronto: os preços da sua carteira e simulações se atualizam sozinhos.</p>
-            <p><b className="text-gold-300">Jeito completo — no computador:</b> para ver <i>todos</i> os ativos no Explorar, baixe o arquivo do dia no site da B3 e envie no quadro <b>"Importar cotações"</b> abaixo.</p>
+            <p><b className="text-gold-300">Jeito completo — no computador:</b> para ver <i>todos</i> os ativos na Tabela B3, baixe o arquivo do dia no site da B3 e envie no quadro <b>"Importar cotações"</b> abaixo.</p>
             <p className="text-xs text-mist-500">Cada pessoa da família usa a própria chave, no próprio aparelho. Nada é compartilhado.</p>
           </div>
         )}
