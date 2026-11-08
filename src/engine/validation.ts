@@ -57,8 +57,8 @@ export function validateInput(input: SimulationInput): ValidationIssue[] {
     add('tradingCostFixed', 'O custo fixo não pode ser negativo.');
   if (input.cashYieldAnnual !== undefined && (!isFiniteNumeric(input.cashYieldAnnual) || dec(input.cashYieldAnnual).lte(-1)))
     add('cashYieldAnnual', 'A remuneração do caixa deve ser maior que −100%.');
-  if (input.paymentLagBusinessDays !== undefined && (!Number.isInteger(input.paymentLagBusinessDays) || input.paymentLagBusinessDays < 0 || input.paymentLagBusinessDays > 40))
-    add('paymentLagBusinessDays', 'O prazo de pagamento deve ser um inteiro entre 0 e 40 dias úteis.');
+  if (input.paymentLagBusinessDays !== undefined && (!Number.isInteger(input.paymentLagBusinessDays) || input.paymentLagBusinessDays < 0 || input.paymentLagBusinessDays > 15))
+    add('paymentLagBusinessDays', 'O prazo deve ser um inteiro entre 0 e 15 dias úteis, para o pagamento cair antes da data-com seguinte (premissa do modelo).');
   if (input.startMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(input.startMonth))
     add('startMonth', 'Mês inicial inválido (use AAAA-MM).');
   if (input.incomeGoalBasis !== 'nominal' && input.incomeGoalBasis !== 'real')

@@ -1,18 +1,38 @@
 import { defineConfig, devices } from '@playwright/test';
 
+/** Porta dedicada aos testes, para nunca reaproveitar um `npm run dev` com o provedor oficial. */
+const API_PORT = 8797;
+const WEB_PORT = 4174;
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 30000,
   fullyParallel: true,
   reporter: [['list']],
-  use: { baseURL: 'http://localhost:4173', trace: 'off' },
+  use: { baseURL: `http://localhost:${WEB_PORT}`, trace: 'off' },
   webServer: [
     {
-      command: 'MARKET_PROVIDER=manual MARKET_STORE_FILE=test-results/e2e-store.json MARKET_MANUAL_FILE=test-results/none.json MARKET_LEARNED_HOLIDAYS_FILE=test-results/learned.json PORT=8787 npx tsx server/index.ts',
-      url: 'http://localhost:8787/api/health',
-      reuseExistingServer: true,
+      command: 'npx tsx server/index.ts',
+      url: `http://localhost:${API_PORT}/api/health`,
+      reuseExistingServer: !process.env.CI,
+      env: {
+        PORT: String(API_PORT),
+        MARKET_PROVIDER: 'manual',
+        MARKET_STORE_FILE: 'test-results/e2e-store.json',
+        MARKET_MANUAL_FILE: 'test-results/none.json',
+        MARKET_LEARNED_HOLIDAYS_FILE: 'test-results/learned.json',
+        STATIC_DIR: 'test-results/no-static',
+        REFRESH_COOLDOWN_MS: '0',
+        DISABLE_SCHEDULER: '1',
+      },
     },
-    { command: 'npx vite build && npx vite preview --port 4173', url: 'http://localhost:4173', reuseExistingServer: true, timeout: 120000 },
+    {
+      command: `npx vite build --outDir test-results/dist-e2e && npx vite preview --outDir test-results/dist-e2e --port ${WEB_PORT} --strictPort`,
+      url: `http://localhost:${WEB_PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+      env: { VITE_API_TARGET: `http://localhost:${API_PORT}` },
+    },
   ],
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },

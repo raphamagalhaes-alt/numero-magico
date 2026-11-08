@@ -26,7 +26,7 @@ export function startDailyScheduler(job: () => Promise<void>, log: (m: string) =
     const d = shouldRunOn(new Date());
     if (!d.run) return log(`[agendador] ${d.reason}`);
     log('[agendador] atualização diária iniciada');
-    await job();
-  }, { timezone: TZ });
+    try { await job(); } catch (e) { log(`[agendador] falha: ${e instanceof Error ? e.message : e}`); }
+  }, { timezone: TZ, name: 'atualizacao-diaria-mercado', noOverlap: true });
   return task;
 }

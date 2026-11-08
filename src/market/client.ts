@@ -5,7 +5,7 @@ export class MarketApiError extends Error {}
 async function call(path: string, init?: RequestInit): Promise<MarketStatus> {
   let res: Response;
   try {
-    res = await fetch(path, { ...init, headers: { Accept: 'application/json' } });
+    res = await fetch(path, { ...init, headers: { Accept: 'application/json', 'X-Requested-With': 'mxrf11' } });
   } catch {
     throw new MarketApiError('Serviço de dados indisponível. Inicie o servidor (npm run server) ou use o modo manual.');
   }

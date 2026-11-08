@@ -23,7 +23,7 @@ export function InfoTip({ text, label = 'Ajuda' }: { text: string; label?: strin
         aria-label={label}
         aria-describedby={id}
         aria-expanded={open}
-        className="rounded-full p-0.5 text-mist-500 hover:text-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500"
+        className="-m-1 rounded-full p-1.5 text-mist-500 hover:text-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500"
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}

@@ -9,7 +9,9 @@ import { fmtBRLPrecise } from '../format';
 const dt = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) : '—');
 const d = (iso?: string | null) => (iso ? new Date(iso.length === 10 ? iso + 'T12:00:00Z' : iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—');
 
-function Src({ s, url }: { s: string; url?: string }) {
+const safeUrl = (u?: string) => (u && /^https:\/\//i.test(u) ? u : undefined);
+function Src({ s, url: raw }: { s: string; url?: string }) {
+  const url = safeUrl(raw);
   return <span className="text-[11px] text-mist-500">Fonte: {url ? <a className="underline hover:text-gold-300" href={url} target="_blank" rel="noreferrer noopener">{s}</a> : s}</span>;
 }
 
@@ -23,7 +25,7 @@ function DivBlock({ title, ev, highlight }: { title: string; ev: DividendEvent |
           <div className="num mt-1 text-xs text-mist-300">Data-com: {d(ev.recordDate)} · Pagamento: {d(ev.paymentDate)}</div>
           <div className="mt-0.5 text-[11px] text-mist-400">
             {ev.referencePeriod && <>Referência: {ev.referencePeriod} · </>}
-            {ev.taxExempt === true ? 'Isento de IR (PF), conforme o aviso' : ev.taxExempt === false ? <span className="text-loss-400">Não isento de IR, conforme o aviso</span> : 'Isenção não informada'}
+            {ev.taxExempt === true ? 'O fundo declara rendimento isento para PF que cumpra os requisitos legais' : ev.taxExempt === false ? <span className="text-loss-400">O aviso indica rendimento não isento</span> : 'Isenção não informada no aviso'}
           </div>
           <Src s={ev.source} url={ev.sourceUrl} />
         </>
@@ -97,7 +99,7 @@ export function MarketPanel({ status, localSnapshot, loading, error, onRefresh, 
           <p className="text-[11px] text-mist-500">A data da consulta não implica nova cotação: fora do pregão (noites, fins de semana e feriados) o preço permanece o do último negócio.</p>
         </>
       ) : (
-        !loading && <p className="text-sm text-mist-400">{status?.automaticUpdates ? 'Nenhum dado de mercado disponível ainda. Clique em “Atualizar agora” para consultar a B3 e o Fundos.NET, ou informe os valores manualmente.' : 'Nenhum dado de mercado disponível. O servidor está em modo manual (MARKET_PROVIDER=manual) ou indisponível — informe os valores a partir dos documentos oficiais.'}</p>
+        !loading && <p className="text-sm text-mist-400">{status?.automaticUpdates ? 'Nenhum dado de mercado disponível ainda. Clique em “Atualizar agora” para consultar a B3 e o Fundos.NET, ou informe os valores manualmente.' : 'Nenhum dado de mercado disponível no momento. Os campos abaixo mostram valores de EXEMPLO. Informe os valores manualmente a partir do aviso de rendimentos (Fundos.NET) e da cotação de fechamento (B3).'}</p>
       )}
 
       {showForm && <ManualForm ticker={ticker} onSave={(s) => { onSaveLocal(s); setShowForm(false); }} />}

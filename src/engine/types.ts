@@ -64,6 +64,8 @@ export interface MagicNumberResult {
   initialFees: Dec;
   initialInvestment: Dec;
   firstIncome: Dec;
+  /** Rendimento do 1º mês líquido de IR. */
+  firstNetIncome: Dec;
 }
 
 export interface MonthRow {
@@ -145,7 +147,14 @@ export interface SimulationSummary {
   /** Perda de poder de compra do patrimônio final (nominal − real). */
   purchasingPowerLoss: Dec;
   goalMonth: number | null;
+  /** false quando a meta foi atingida mas a renda (ex.: real) volta a ficar abaixo dela depois. */
+  goalSustained: boolean;
+  /** Último mês em que a renda ficou abaixo da meta após tê-la atingido. */
+  goalLastMissMonth: number | null;
   goalProgress: Dec;
+  /** TIR anualizada (nominal e real) dos fluxos: investimento inicial e aportes → patrimônio final. */
+  irrAnnual: number | null;
+  irrAnnualReal: number | null;
 }
 
 export interface SimulationResult {

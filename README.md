@@ -6,7 +6,7 @@ Simulador web educativo, em português do Brasil, que mostra como o reinvestimen
 
 ## Instalação e execução
 
-Requisitos: Node.js 20+ (testado com 22).
+Requisitos: Node.js 22.12+ (`.nvmrc`).
 
 ```bash
 npm install
@@ -18,11 +18,13 @@ npm run dev          # frontend (http://localhost:5173) + API de dados (http://l
 | `npm run dev` | Vite + servidor de dados com recarga automática |
 | `npm run dev:web` | Apenas o frontend (o modo de mercado mostrará "serviço indisponível") |
 | `npm run server` | Apenas a API de dados + agendador |
-| `npm test` | 61 testes unitários (Vitest): motor, premissas avançadas, calendário, provedor oficial, exportação |
+| `npm test` | 82 testes unitários (Vitest): motor, premissas avançadas, calendário, provedor oficial, exportação |
 | `npm run check:live` | Consulta ao vivo B3 + Fundos.NET para todos os ativos |
 | `npm start` | Build + servidor único (frontend + API + agendador) |
-| `npm run test:e2e` | 13 testes de interface (Playwright) em desktop, tablet e celular |
+| `npm run test:e2e` | 18 testes de interface (Playwright) em desktop, tablet e celular |
 | `npm run typecheck` | Checagem de tipos do frontend e do servidor |
+| `npm run lint` | ESLint (inclui `react-hooks/exhaustive-deps`) |
+| `npm run ci` | Typecheck + lint + testes + build + E2E (o mesmo do GitHub Actions) |
 | `npm run build` | Typecheck + build de produção em `dist/` |
 
 ## Como usar
@@ -141,6 +143,26 @@ Ficam no painel "Premissas avançadas":
 
 Essas premissas aparecem no relatório PDF e na aba "Premissas" do Excel. A tabela e o CSV ganham as colunas Data-com, Pagamento/compra, IR retido, Juros do caixa, Custos e Patrimônio líquido se vendido.
 
+## Segurança e operação
+
+| Variável | Padrão | Efeito |
+|---|---|---|
+| `HOST` | `127.0.0.1` | Interface de escuta. Use `0.0.0.0` só atrás de um proxy reverso. |
+| `REFRESH_TOKEN` | (vazio) | Se definido, o `POST /api/market/:ticker/refresh` exige `Authorization: Bearer <token>`. |
+| `REFRESH_COOLDOWN_MS` | `300000` | Intervalo mínimo entre atualizações manuais do mesmo ativo; antes disso, a resposta é 429. |
+| `DISABLE_SCHEDULER` | — | Use `1` para desligar o agendador interno. |
+
+**Proteções do endpoint de atualização:**
+- exige o cabeçalho `X-Requested-With: mxrf11`, o que bloqueia CSRF;
+- consultas simultâneas do mesmo ativo são unificadas;
+- o arquivo COTAHIST fica em cache por 10 minutos.
+
+**Respostas do servidor:**
+- incluem CSP, `nosniff`, `X-Frame-Options` e `Referrer-Policy`;
+- erros 500 não expõem detalhes internos, e os logs são JSON estruturado.
+
+O relatório completo da revisão está em [`docs/REVISAO.md`](docs/REVISAO.md).
+
 ## Publicação
 
 **Um único processo** serve o frontend e a API:
@@ -149,7 +171,7 @@ Essas premissas aparecem no relatório PDF e na aba "Premissas" do Excel. A tabe
 npm start
 ```
 
-Faz o build e roda `server/index.ts`, que entrega `dist/` e `/api`. Porta em `PORT` (padrão 8787).
+Faz o build e roda `server/index.ts`, que entrega `dist/` e `/api`. Porta em `PORT` (padrão 8787). Em servidor/container, defina `HOST=0.0.0.0` atrás de um proxy reverso com HTTPS.
 
 Exemplos de hospedagem: VM, container, Fly.io, Railway ou Render.
 

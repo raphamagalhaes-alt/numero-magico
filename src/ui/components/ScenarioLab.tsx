@@ -4,6 +4,7 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { simulate, type SimulationInput, type SimulationResult } from '../../engine';
 import { SCENARIOS, buildScenarioInput, type ScenarioKind, type ScenarioParams } from '../../scenarios/scenarios';
 import { fmtBRL, fmtCompactBRL, fmtInt } from '../format';
+import { parseBR } from '../form';
 import { SERIES } from './Charts';
 
 const PARAM_LABEL: Record<keyof ScenarioParams, string> = {
@@ -19,8 +20,9 @@ function NumInput({ label, value, onChange, pct }: { label: string; value: numbe
       <input className={`input num ${bad ? 'input-error' : ''}`} value={txt} inputMode="decimal" aria-invalid={bad}
         onChange={(e) => {
           setTxt(e.target.value);
-          const n = Number(e.target.value.replace(/\./g, '').replace(',', '.'));
-          const ok = e.target.value.trim() !== '' && Number.isFinite(n) && (pct ? n > -100 : n >= 0);
+          const parsed = parseBR(e.target.value.includes(',') ? e.target.value : e.target.value.replace(/^(-?\d+)\.(\d+)$/, '$1,$2'));
+          const n = parsed === null ? NaN : Number(parsed);
+          const ok = Number.isFinite(n) && (pct ? n > -100 : n >= 0);
           setBad(!ok);
           if (ok) onChange(pct ? n / 100 : n);
         }} />
@@ -59,7 +61,7 @@ export function ScenarioLab({ base }: { base: SimulationInput | null }) {
     <section id="laboratorio" aria-label="Laboratório de Cenários" className="flex flex-col gap-4">
       <div className="flex items-center gap-2"><FlaskConical size={18} className="text-gold-400" aria-hidden /><h2 className="text-lg font-semibold">Laboratório de Cenários</h2></div>
       <p className="rounded-lg bg-ink-850 p-3 text-xs text-mist-400 ring-1 ring-white/5">
-        Hipóteses matemáticas para análise de sensibilidade. Não são previsões sobre o MXRF11 nem sobre qualquer ativo. Variações de preço e dividendo são aplicadas a cada 12 meses; dividendos derivados são truncados, nunca arredondados para cima. Selecione até 3 cenários para comparar.
+        Hipóteses matemáticas para análise de sensibilidade. Não são previsões sobre o MXRF11 nem sobre qualquer ativo. Variações de preço e dividendo são aplicadas a cada 12 meses; dividendos derivados são truncados, nunca arredondados para cima. Todos partem do mesmo número mágico (calculado com o dividendo da aba). Estável, Conservador e Otimista usam o aporte e a inflação da aba selecionada; o Personalizado usa os próprios. Selecione até 3 cenários.
       </p>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {SCENARIOS.map((s) => {

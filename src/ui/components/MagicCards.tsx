@@ -13,7 +13,12 @@ export function MagicCards({ magic, desired }: { magic: MagicNumberResult | null
     );
   }
   return (
-    <section aria-label="Número mágico" className="grid gap-4 md:grid-cols-2">
+    <section aria-labelledby="magic-title" className="grid gap-4 md:grid-cols-2">
+      <h2 id="magic-title" className="text-lg font-semibold leading-snug text-mist-100 md:col-span-2" data-testid="magic-sentence">
+        Neste cenário, com <span className="text-gold-300">{fmtInt(magic.shares)} cotas</span>, os rendimentos de um mês comprariam{' '}
+        <span className="text-gold-300">{desired} {desired === 1 ? 'cota nova' : 'cotas novas'}</span> — sem tirar dinheiro do bolso.
+        <span className="mt-1 block text-sm font-normal text-mist-400">A partir daí, as cotas novas também passariam a render: dividendo → cota → mais dividendo — se preço e rendimento se mantiverem.</span>
+      </h2>
       <div className="card relative overflow-hidden p-6">
         <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-gold-500/10 blur-2xl" aria-hidden />
         <div className="label flex items-center gap-2"><Sparkles size={14} className="text-gold-400" aria-hidden />Número mágico</div>
@@ -22,7 +27,7 @@ export function MagicCards({ magic, desired }: { magic: MagicNumberResult | null
           <span className="text-mist-400">cotas</span>
         </div>
         <p className="mt-2 text-xs text-mist-400">
-          Rende {fmtBRL(magic.firstIncome)} no 1º mês — paga {desired} {desired === 1 ? 'cota' : 'cotas'} ({fmtBRL(magic.targetCost)}).
+          Neste cenário, renderia {fmtBRL(magic.firstNetIncome)}{magic.firstNetIncome.lt(magic.firstIncome) ? ' líquidos de IR' : ''} no 1º mês — o suficiente para {desired} {desired === 1 ? 'cota' : 'cotas'} ({fmtBRL(magic.targetCost)}).
           {magic.quantizationAdjusted && <> Ajustado de {fmtInt(magic.theoreticalShares)} para {fmtInt(magic.shares)} pela quantização do rendimento em centavos.</>}
         </p>
       </div>

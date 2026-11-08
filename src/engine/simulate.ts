@@ -67,6 +67,9 @@ export function simulate(input: SimulationInput): SimulationResult {
   const initialFees = orderFees(initialShares, p0, costs);
   const initialInvestment = p0.mul(initialShares).add(initialFees);
   const inflation = dec(input.inflationAnnual);
+  // fator mensal calculado uma única vez; o deflator acumula por multiplicação (≈ 20× mais rápido que pow fracionário a cada mês)
+  const monthlyInflation = inflation.isZero() ? ONE : ONE.add(inflation).pow(new D(1).div(12));
+  let deflator = ONE;
   const reinvestRatio = dec(input.reinvestRatio);
   const goal = dec(input.incomeGoal);
 
@@ -78,6 +81,7 @@ export function simulate(input: SimulationInput): SimulationResult {
   let cumFees = initialFees, cumTax = ZERO, cumInterest = ZERO;
   let maxBought = 0;
   let goalMonth: number | null = null;
+  let goalLastMissMonth: number | null = null;
 
   for (let t = 1; t <= input.months; t++) {
     const dates = input.startMonth ? datesAt(input.startMonth, t, lag) : { recordDate: null, paymentDate: null };
@@ -122,12 +126,13 @@ export function simulate(input: SimulationInput): SimulationResult {
     cumFees = cumFees.add(purchaseFees);
     cumTax = cumTax.add(dividendTax);
     cumInterest = cumInterest.add(cashInterest);
-    const deflator = deflatorAt(inflation, t);
+    deflator = deflator.mul(monthlyInflation);
     const realIncome = netIncome.div(deflator);
     const realEquity = totalEquity.div(deflator);
     const goalIncome = input.incomeGoalBasis === 'real' ? realIncome : netIncome;
     const isGoalMonth = goalMonth === null && goal.gt(0) && goalIncome.gte(goal);
     if (isGoalMonth) goalMonth = t;
+    else if (goalMonth !== null && goalIncome.lt(goal)) goalLastMissMonth = t;
     const isPurchaseRecord = sharesBought > maxBought;
     if (isPurchaseRecord) maxBought = sharesBought;
 
@@ -169,10 +174,34 @@ export function simulate(input: SimulationInput): SimulationResult {
     growthPct: totalInvested.isZero() ? ZERO : last.totalEquity.div(totalInvested).sub(1),
     purchasingPowerLoss: last.totalEquity.sub(last.realEquity),
     goalMonth,
+    goalSustained: goalMonth !== null && goalLastMissMonth === null,
+    goalLastMissMonth,
     goalProgress: goal.isZero() ? ONE : D.min(ONE, last.goalIncome.div(goal)),
+    ...annualIrr(initialInvestment, rows, inflation),
   };
 
   return { input, magic, rows, summary };
+}
+
+/**
+ * TIR mensal por bisseção sobre os fluxos do investidor: −investimento inicial no mês 0,
+ * −aportes, +dividendos retirados e +patrimônio total no último mês. Usa float: apenas indicador exibido.
+ */
+export function annualIrr(initial: Dec, rows: MonthRow[], inflation: Dec): { irrAnnual: number | null; irrAnnualReal: number | null } {
+  const flows = [-initial.toNumber(), ...rows.map((r) => r.withdrawn.toNumber() - r.contribution.toNumber())];
+  flows[flows.length - 1] += rows[rows.length - 1].totalEquity.toNumber();
+  const npv = (r: number) => flows.reduce((acc, f, i) => acc + f / Math.pow(1 + r, i), 0);
+  if (!(flows[0] < 0) || !rows.length) return { irrAnnual: null, irrAnnualReal: null };
+  let lo = -0.99, hi = 1;
+  if (npv(lo) * npv(hi) > 0) return { irrAnnual: null, irrAnnualReal: null };
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    if (npv(lo) * npv(mid) <= 0) hi = mid; else lo = mid;
+  }
+  const monthly = (lo + hi) / 2;
+  const annual = Math.pow(1 + monthly, 12) - 1;
+  const real = (1 + annual) / (1 + inflation.toNumber()) - 1;
+  return { irrAnnual: annual, irrAnnualReal: real };
 }
 
 export function monthsToYearsMonths(month: number): { years: number; months: number } {

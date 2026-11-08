@@ -3,18 +3,25 @@ import type { SimulationResult } from '../../engine';
 import { fmtBRL, fmtInt, fmtPct, yearsMonthsLabel } from '../format';
 import { Stat } from './Stat';
 
-export function GoalBanner({ result }: { result: SimulationResult }) {
+export function GoalBanner({ result, hint }: { result: SimulationResult; hint?: string }) {
   const { goalMonth, goalProgress } = result.summary;
   const basis = result.input.incomeGoalBasis === 'real' ? 'real (poder de compra de hoje)' : 'nominal';
   const goal = fmtBRL(result.input.incomeGoal);
+  const near = !goalMonth && goalProgress.gte('0.9');
   return (
-    <div data-testid="goal-banner" className={`card flex flex-col gap-3 p-4 sm:flex-row sm:items-center ${goalMonth ? 'ring-gain-500/30' : 'ring-loss-500/30'}`}>
-      <Target size={20} className={goalMonth ? 'text-gain-400' : 'text-loss-400'} aria-hidden />
+    <div data-testid="goal-banner" className={`card flex flex-col gap-3 p-4 sm:flex-row sm:items-center ${goalMonth ? 'ring-gain-500/30' : near ? 'ring-gold-500/30' : 'ring-loss-500/30'}`}>
+      <Target size={20} className={goalMonth ? 'text-gain-400' : near ? 'text-gold-400' : 'text-loss-400'} aria-hidden />
       <div className="flex-1">
+        {goalMonth && !result.summary.goalSustained && (
+          <p className="text-sm text-gold-300">Atenção: depois de atingida, a renda volta a ficar abaixo da meta (último mês abaixo: {result.summary.goalLastMissMonth}). Em termos reais, a inflação pode corroer a renda.</p>
+        )}
         {goalMonth ? (
           <p className="font-medium text-gain-400">Meta atingida no mês {goalMonth} — {yearsMonthsLabel(goalMonth)} de simulação.{result.rows[goalMonth - 1].paymentDate ? ` Pagamento previsto: ${result.rows[goalMonth - 1].paymentDate!.split('-').reverse().join('/')}.` : ''}</p>
         ) : (
-          <p className="font-medium text-loss-400">Meta não atingida em 360 meses.</p>
+          <p className={`font-medium ${near ? 'text-gold-300' : 'text-loss-400'}`}>
+            {near ? `Quase lá: ${fmtPct(goalProgress, 1)} da meta em 360 meses.` : 'Meta não atingida em 360 meses.'}
+            {hint && <span className="block text-sm font-normal text-mist-300">{hint}</span>}
+          </p>
         )}
         <p className="text-xs text-mist-400">Meta de renda {basis}: {goal}/mês. Considera a renda líquida das cotas detidas na data-com, antes do reinvestimento.</p>
       </div>
@@ -33,24 +40,26 @@ export function ExecutiveSummary({ result, showReal, showContrib }: { result: Si
   const growthTone = s.growthOverInvested.gte(0) ? 'gain' : 'loss';
   return (
     <section aria-label="Resumo executivo" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-      <Stat label="Investimento inicial" value={fmtBRL(s.initialInvestment)} help="Cotas iniciais × preço da cota no mês 0." />
+      <Stat label="Investimento inicial" value={fmtBRL(s.initialInvestment)} help="Cotas iniciais × preço da cota no mês 0, mais custos de negociação da compra inicial (se informados)." />
       <Stat label="Cotas iniciais" value={fmtInt(s.initialShares)} />
       <Stat label="Cotas finais" value={fmtInt(s.finalShares)} tone="gold" testId="final-shares" help="Quantidade de cotas no encerramento do mês 360." />
       <Stat label="Renda no mês 360" value={fmtBRL(s.finalIncome)} tone="gold" help="Rendimento recebido pelas cotas existentes no início do mês 360." sub={showReal ? `Real: ${fmtBRL(s.finalRealIncome)}` : undefined} />
       <Stat label="Patrimônio no mês 360" value={fmtBRL(s.finalEquity)} testId="final-equity" help="Valor de mercado das cotas + saldo residual em caixa." sub={`Caixa residual: ${fmtBRL(s.finalCash)}`} />
       {showContrib && <Stat label="Total aportado" value={fmtBRL(s.totalContributions)} help="Soma dos aportes mensais (sem o investimento inicial)." sub={`Capital total: ${fmtBRL(s.totalInvested)}`} />}
-      {showReal && <Stat label="Patrimônio real" value={fmtBRL(s.finalRealEquity)} help="Patrimônio do mês 360 em poder de compra do mês 0: nominal / (1 + inflação)^(t/12)." sub={<span className="text-loss-400">Perda de poder de compra: {fmtBRL(s.purchasingPowerLoss)}</span>} />}
-      <Stat label="Crescimento patrimonial" value={fmtBRL(s.growthOverInvested)} tone={growthTone} help="Patrimônio final menos todo o capital aportado (inicial + aportes)." sub={`${fmtPct(s.growthPct, 1)} sobre o capital aportado`} />
+      {showReal && <Stat label="Patrimônio real" value={fmtBRL(s.finalRealEquity)} help="Patrimônio do mês 360 em poder de compra do mês 0: nominal / (1 + inflação)^(t/12)." sub={<span className="text-mist-400">Efeito da inflação (nominal − real): {fmtBRL(s.purchasingPowerLoss)}</span>} />}
+      <Stat label="Crescimento patrimonial" value={fmtBRL(s.growthOverInvested)} tone={growthTone} testId="growth"
+        help="Patrimônio final menos todo o capital aportado (inicial + aportes). A TIR é a taxa anual equivalente dos fluxos (aportes e retiradas em suas datas), comparável a outras aplicações."
+        sub={s.irrAnnual !== null ? `TIR ${fmtPct(s.irrAnnual, 2)} a.a. · real ${fmtPct(s.irrAnnualReal ?? 0, 2)} a.a.` : `${fmtPct(s.growthPct, 1)} acumulado em 30 anos`} />
       <Stat label="Dividendos recebidos" value={fmtBRL(s.totalIncome)} help="Soma de todos os rendimentos recebidos em 360 meses." sub={`Reinvestidos: ${fmtBRL(s.totalReinvested)}`} />
       <Stat label="Líquido se vendido no mês 360" value={fmtBRL(s.finalNetLiquidationEquity)} testId="net-liquidation"
         help="Patrimônio total menos custos de venda e IR sobre ganho de capital (alíquota das premissas avançadas), se todas as cotas fossem vendidas ao preço do mês 360."
         sub={`IR + custos na venda: ${fmtBRL(s.finalLiquidationCosts)}`} />
       {(s.totalFees.gt(0) || s.totalDividendTax.gt(0) || s.totalCashInterest.gt(0)) && (
-        <Stat label="Custos, IR e juros do caixa" value={fmtBRL(s.totalFees.add(s.totalDividendTax))}
+        <Stat label="Custos e IR pagos" value={fmtBRL(s.totalFees.add(s.totalDividendTax))}
           help="Custos de negociação pagos nas compras + IR retido sobre rendimentos, em 360 meses. Juros do caixa somam ao disponível."
           sub={`Custos ${fmtBRL(s.totalFees)} · IR ${fmtBRL(s.totalDividendTax)} · Juros ${fmtBRL(s.totalCashInterest)}`} />
       )}
-      <Stat label="Meta de renda" value={s.goalMonth ? `Mês ${s.goalMonth}` : 'Não atingida'} tone={s.goalMonth ? 'gain' : 'loss'} sub={`${fmtPct(s.goalProgress, 1)} da meta`} />
+      <Stat label="Meta de renda" value={s.goalMonth ? `Mês ${s.goalMonth}` : s.goalProgress.gte('0.9') ? 'Quase lá' : 'Não atingida'} tone={s.goalMonth ? 'gain' : s.goalProgress.gte('0.9') ? 'gold' : 'loss'} sub={`${fmtPct(s.goalProgress, 1)} da meta`} />
     </section>
   );
 }

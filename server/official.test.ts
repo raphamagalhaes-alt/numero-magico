@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { strToU8, zipSync } from 'fflate';
-import { COTAHIST_URL, FNET_DOC, OfficialB3FnetProvider, parseCotahist, parseFnetDividendXml } from './providers/official';
+import { COTAHIST_URL, FNET_DOC, OfficialB3FnetProvider, activeDocuments, parseCotahist, parseFnetDividendXml } from './providers/official';
 import { extraHolidays, isTradingDay } from './calendar';
 
 const fx = (f: string) => readFileSync(join(__dirname, 'fixtures', f), 'utf8');
@@ -37,23 +37,25 @@ describe('parser Fundos.NET — Aviso aos Cotistas estruturado', () => {
 });
 
 /** Servidor falso com as mesmas URLs oficiais. */
-function fakeOfficial(opts: { files: Record<string, string>; docs: { id: number; dataEntrega: string; xml: string }[]; fnetStatus?: number }) {
+type FakeDoc = { id: number; dataEntrega: string; xml: string; status?: string; situacaoDocumento?: string; versao?: number };
+function fakeOfficial(opts: { files: Record<string, string>; docs: FakeDoc[]; fnetStatus?: number; calls?: string[] }) {
   return (async (input: string | URL) => {
     const url = String(input);
+    opts.calls?.push(url);
     for (const [date, txt] of Object.entries(opts.files)) {
       if (url === COTAHIST_URL(date)) return new Response(zipSync({ [`COTAHIST_${date}.TXT`]: strToU8(txt) }), { status: 200 });
     }
     if (url.includes('/InstDados/SerHist/')) return new Response('not found', { status: 404 });
     if (url.includes('pesquisarGerenciadorDocumentosDados')) {
       if (opts.fnetStatus) return new Response('erro', { status: opts.fnetStatus });
-      return Response.json({ data: opts.docs.map(({ id, dataEntrega }) => ({ id, dataEntrega })) });
+      return Response.json({ data: opts.docs.map(({ xml: _x, ...meta }) => meta) });
     }
     const doc = opts.docs.find((d) => url === FNET_DOC(d.id));
     if (doc) return new Response(doc.xml, { status: 200 });
     return new Response('?', { status: 404 });
   }) as unknown as typeof fetch;
 }
-const SEP_XML = MXRF_XML.replace('2026-10-30', '2026-09-30').replace('0.095', '0.1').replace('2026-11-16', '2026-10-15');
+const SEP_XML = MXRF_XML.replace('<DataBase>2026-10-30</DataBase>', '<DataBase>2026-09-30</DataBase>').replace('0.095', '0.1').replace('<DataPagamento>2026-11-16</DataPagamento>', '<DataPagamento>2026-10-15</DataPagamento>');
 
 describe('provedor oficial B3 + Fundos.NET', () => {
   it('monta snapshot: fechamento, anunciado (a pagar) e pago, com fontes e prazo observado', async () => {
@@ -92,7 +94,7 @@ describe('provedor oficial B3 + Fundos.NET', () => {
     expect(t.sessionDate).toBe('2031-03-11');
     expect(learned).toEqual(['2031-03-12']); // 13/03 tem < 2 dias: ainda não é considerado feriado
   });
-  it('documento de outro fundo/ticker é ignorado; falha do Fundos.NET propaga erro', async () => {
+  it('documento de outro fundo/ticker é ignorado; falha só do Fundos.NET gera snapshot parcial', async () => {
     const p = new OfficialB3FnetProvider({
       cnpjByTicker: { MXRF11: '97521225000125' }, now: () => new Date('2026-11-08T12:00:00Z'),
       fetchImpl: fakeOfficial({ files: { '2026-11-06': COTAHIST }, docs: [{ id: 9, dataEntrega: '30/10/2026 17:00', xml: HGLG_XML }] }),
@@ -101,9 +103,12 @@ describe('provedor oficial B3 + Fundos.NET', () => {
     expect(s.lastAnnouncedDividend).toBeNull();
     const bad = new OfficialB3FnetProvider({
       cnpjByTicker: { MXRF11: '97521225000125' }, now: () => new Date('2026-11-08T12:00:00Z'),
-      fetchImpl: fakeOfficial({ files: { '2026-11-06': COTAHIST }, docs: [], fnetStatus: 503 }),
+      fetchImpl: fakeOfficial({ files: { '2026-11-06': COTAHIST }, docs: [], fnetStatus: 503 }), retryDelayMs: 1,
     });
-    await expect(bad.fetchSnapshot('MXRF11')).rejects.toThrow(/503/);
+    const partial = await bad.fetchSnapshot('MXRF11');
+    expect(partial.lastTrade?.price).toBe('8.80');
+    expect(partial.partial).toEqual({ trade: true, dividends: false });
+    expect(partial.partialErrors?.[0]).toMatch(/503/);
   });
 });
 
@@ -113,5 +118,49 @@ describe('feriados aprendidos alimentam o calendário', () => {
     registerExtraHolidays(['2031-03-12']);
     expect(isTradingDay('2031-03-12')).toBe(false);
     expect(extraHolidays()).toContain('2031-03-12');
+  });
+});
+
+describe('revisão: documentos e robustez do provedor oficial', () => {
+  const NOV_V2 = MXRF_XML.replace('<ValorProvento>0.095</ValorProvento>', '<ValorProvento>0.096</ValorProvento>');
+  it('descarta documentos inativos (IC) e cancelados (CC); retificação de maior versão prevalece', () => {
+    expect(activeDocuments([
+      { id: 1, dataEntrega: '', status: 'IC', situacaoDocumento: 'I', versao: 1 },
+      { id: 2, dataEntrega: '', status: 'AC', situacaoDocumento: 'A', versao: 2 },
+      { id: 3, dataEntrega: '', status: 'CC', situacaoDocumento: 'C' },
+    ]).map((d) => d.id)).toEqual([2]);
+  });
+  it('com versões 1 (inativa) e 2 (ativa) do mesmo aviso, usa a 2', async () => {
+    const p = new OfficialB3FnetProvider({
+      cnpjByTicker: { MXRF11: '97521225000125' }, now: () => new Date('2026-11-08T12:00:00Z'),
+      fetchImpl: fakeOfficial({ files: { '2026-11-06': COTAHIST }, docs: [
+        { id: 5, dataEntrega: '31/10/2026 10:00', xml: NOV_V2, status: 'AC', situacaoDocumento: 'A', versao: 2 },
+        { id: 4, dataEntrega: '30/10/2026 16:31', xml: MXRF_XML, status: 'IC', situacaoDocumento: 'I', versao: 1 },
+      ] }),
+    });
+    expect((await p.fetchSnapshot('MXRF11')).lastAnnouncedDividend?.amountPerShare).toBe('0.096');
+  });
+  it('ISIN divergente no COTAHIST é rejeitado', async () => {
+    const p = new OfficialB3FnetProvider({
+      cnpjByTicker: { MXRF11: '97521225000125' }, isinByTicker: { MXRF11: 'BRXXXXCTF000' }, now: () => new Date('2026-11-08T12:00:00Z'),
+      fetchImpl: fakeOfficial({ files: { '2026-11-06': COTAHIST }, docs: [] }),
+    });
+    await expect(p.fetchLastTrade('MXRF11')).rejects.toThrow(/ISIN divergente/);
+  });
+  it('ativo sem negócios no pregão recua ao anterior; COTAHIST baixado uma vez para vários ativos', async () => {
+    const calls: string[] = [];
+    const onlyHglg = COTAHIST.split('\n').filter((l) => l.includes('HGLG11')).join('\n');
+    const p = new OfficialB3FnetProvider({
+      cnpjByTicker: {}, now: () => new Date('2026-11-08T12:00:00Z'),
+      fetchImpl: fakeOfficial({ files: { '2026-11-06': onlyHglg, '2026-11-05': COTAHIST.replace(/20261106/g, '20261105') }, docs: [], calls }),
+    });
+    expect((await p.fetchLastTrade('MXRF11')).sessionDate).toBe('2026-11-05');
+    await p.fetchLastTrade('HGLG11');
+    expect(calls.filter((u) => u.includes('COTAHIST_D06112026')).length).toBe(1);
+  });
+  it('fator de cotação (FATCOT) divide o preço', () => {
+    const line = COTAHIST.split('\n')[0];
+    const withFactor = line.slice(0, 210) + '0001000' + line.slice(217);
+    expect(parseCotahist(withFactor, line.slice(12, 24).trim())!.close).toBe(String(Number(parseCotahist(line, line.slice(12, 24).trim())!.close) / 1000));
   });
 });

@@ -10,6 +10,7 @@ export const LIMITATIONS = [
   'Datas: data-com no último dia útil do mês e pagamento N dias úteis depois (calendário B3), padrão observado nos avisos oficiais; o fundo pode alterar o cronograma.',
   'Compras de cotas inteiras ao preço do mês, na data de pagamento, sem spread nem impacto de liquidez.',
   'Custos, alíquotas de IR e remuneração do caixa são os informados nas premissas avançadas; confira as tabelas vigentes da sua corretora, da B3 e a legislação.',
+  'A isenção de IR sobre rendimentos de FII para pessoa física depende de requisitos do fundo e do cotista e pode ser alterada por lei; o aviso do fundo não garante a isenção para cada investidor.',
   'O patrimônio líquido se vendido considera IR sobre ganho de capital apenas na venda total hipotética do mês.',
 ];
 

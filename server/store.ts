@@ -13,16 +13,23 @@ export class JsonStore {
   private data: Record<string, StoredTicker> = {};
   constructor(private readonly path: string) {
     if (existsSync(path)) {
-      try { this.data = JSON.parse(readFileSync(path, 'utf8')); } catch { this.data = {}; }
+      try {
+        const v = JSON.parse(readFileSync(path, 'utf8'));
+        this.data = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+      } catch (e) {
+        console.error(`[store] arquivo ${path} ilegível, iniciando vazio:`, e instanceof Error ? e.message : e);
+        this.data = {};
+      }
     }
   }
   get(ticker: string): StoredTicker {
-    return this.data[ticker] ?? { snapshot: null, lastAttemptAt: null, lastError: null };
+    const v = Object.hasOwn(this.data, ticker) ? this.data[ticker] : null;
+    return v && typeof v === 'object' ? { snapshot: v.snapshot ?? null, lastAttemptAt: v.lastAttemptAt ?? null, lastError: v.lastError ?? null } : { snapshot: null, lastAttemptAt: null, lastError: null };
   }
   set(ticker: string, v: StoredTicker) {
     this.data[ticker] = v;
     mkdirSync(dirname(this.path), { recursive: true });
-    const tmp = this.path + '.tmp';
+    const tmp = `${this.path}.${process.pid}.${Date.now()}.tmp`;
     writeFileSync(tmp, JSON.stringify(this.data, null, 2));
     renameSync(tmp, this.path);
   }

@@ -24,7 +24,7 @@ function toPoints(r: SimulationResult): Point[] {
     month: x.month,
     equity: x.totalEquity.toNumber(),
     shares: x.sharesEnd,
-    income: x.income.toNumber(),
+    income: x.netIncome.toNumber(), // líquido de IR, mesma base da renda real e da meta
     realIncome: x.realIncome.toNumber(),
     cumDividends: x.cumIncome.toNumber(),
     invested: init.add(x.cumContributions).toNumber(),
@@ -52,12 +52,12 @@ function ChartTooltip({ active, payload, label, money = true }: { active?: boole
 
 function Frame({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) {
   return (
-    <figure className="card p-4">
+    <figure className="card p-4" role="group" aria-label={`Gráfico: ${title}. ${desc} Os valores exatos estão na tabela detalhada abaixo.`}>
       <figcaption className="mb-3">
         <div className="text-sm font-medium text-mist-100">{title}</div>
         <div className="text-xs text-mist-500">{desc}</div>
       </figcaption>
-      <div className="h-56 sm:h-64">{children}</div>
+      <div className="h-56 sm:h-64" aria-hidden="true">{children}</div>
     </figure>
   );
 }
@@ -106,7 +106,7 @@ export function ChartsPanel({ result, charts, testId, showReal = true }: { resul
       </Frame>
     ),
     income: (
-      <Frame key="income" title="Evolução da renda mensal" desc="Rendimento recebido pelas cotas do início do mês.">
+      <Frame key="income" title="Evolução da renda mensal" desc="Rendimento líquido de IR recebido pelas cotas detidas na data-com.">
         <ResponsiveContainer><LineChart data={data}>{grid}{xAxis}{yMoney}<Tooltip content={<ChartTooltip />} />{legend}{goalLine}{line('income', 'Renda nominal', SERIES[0])}{showReal && line('realIncome', 'Renda real', SERIES[1], true)}</LineChart></ResponsiveContainer>
       </Frame>
     ),
@@ -138,7 +138,7 @@ export function ChartsPanel({ result, charts, testId, showReal = true }: { resul
   return (
     <section aria-label="Gráficos" data-testid={testId} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="label">Gráficos</h3>
+        <h2 className="label">Gráficos</h2>
         <div className="seg" role="group" aria-label="Horizonte dos gráficos">
           {RANGES.map((y) => (
             <button key={y} type="button" aria-pressed={years === y} onClick={() => setYears(y)}>{y} {y === 1 ? 'ano' : 'anos'}</button>

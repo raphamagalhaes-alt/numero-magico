@@ -13,12 +13,12 @@ export function StrategyCompare({ base }: { base: SimulationInput | null }) {
         Mesmas premissas da aba selecionada. Dividendos retirados vão para o bolso do investidor e são registrados à parte — não entram no patrimônio investido, evitando dupla contagem.
       </p>
       <div className="grid gap-3 md:grid-cols-3">
-        {out.map((o, i) => (
-          <div key={o.id} data-testid={`strategy-${o.id}`} className={`card p-4 ${i === 0 ? 'ring-gold-500/30' : ''}`}>
-            <div className="text-sm font-medium text-gold-300">{o.label}</div>
+        {out.map((o) => (
+          <div key={o.id} data-testid={`strategy-${o.id}`} className="card p-4">
+            <div className="text-sm font-medium text-mist-100">{o.label}</div>
             <dl className="num mt-3 grid grid-cols-2 gap-y-2 text-xs">
               <dt className="text-mist-400">Patrimônio investido final</dt><dd className="text-right text-mist-100">{fmtBRL(o.finalEquity)}</dd>
-              <dt className="text-mist-400">Total recebido em dinheiro</dt><dd className="text-right">{fmtBRL(o.cashReceived)}</dd>
+              <dt className="text-mist-400">Recebido em dinheiro (soma nominal de 30 anos)</dt><dd className="text-right">{fmtBRL(o.cashReceived)}</dd>
               <dt className="text-mist-400">Cotas finais</dt><dd className="text-right">{fmtInt(o.finalShares)}</dd>
               <dt className="text-mist-400">Renda mensal final</dt><dd className="text-right">{fmtBRL(o.finalIncome)}</dd>
             </dl>

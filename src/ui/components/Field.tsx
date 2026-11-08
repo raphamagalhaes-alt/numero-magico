@@ -37,7 +37,7 @@ export function Field({ label, value, onChange, error, help, prefix, suffix, inp
         />
         {suffix && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-mist-500">{suffix}</span>}
       </div>
-      {error && <p id={`${id}-err`} role="alert" className="text-xs text-loss-400">{error}</p>}
+      {error && <p id={`${id}-err`} className="text-xs text-loss-400">{error}</p>}
     </div>
   );
 }

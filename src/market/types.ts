@@ -49,6 +49,9 @@ export interface MarketSnapshot {
   paymentLagBusinessDays?: number;
   /** Administrador informado no documento oficial. */
   administrator?: string;
+  /** Falhas parciais desta consulta (a parte que falhou foi mantida da consulta anterior). */
+  partialErrors?: string[];
+  partial?: { trade: boolean; dividends: boolean };
 }
 
 export interface MarketStatus {

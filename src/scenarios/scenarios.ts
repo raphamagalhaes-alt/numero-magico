@@ -60,12 +60,13 @@ export function scenarioDefinition(kind: ScenarioKind): ScenarioDefinition {
 export function buildScenarioInput(base: SimulationInput, kind: ScenarioKind, params: ScenarioParams): SimulationInput {
   const common = { ...base, priceAnnualChange: 0, dividendAnnualChange: 0, dividendInitialChange: 0 };
   switch (kind) {
+    // Estável, Conservador e Otimista herdam aporte e inflação da aba selecionada → comparáveis entre si.
     case 'estavel':
-      return { ...common, monthlyContribution: 0 };
+      return common;
     case 'conservador':
-      return { ...common, monthlyContribution: 0, dividendInitialChange: -Math.abs(params.dividendCut), priceAnnualChange: params.priceAnnualChange };
+      return { ...common, dividendInitialChange: -Math.abs(params.dividendCut), priceAnnualChange: params.priceAnnualChange };
     case 'otimista':
-      return { ...common, monthlyContribution: 0, dividendAnnualChange: params.dividendAnnualChange, priceAnnualChange: params.priceAnnualChange };
+      return { ...common, dividendAnnualChange: params.dividendAnnualChange, priceAnnualChange: params.priceAnnualChange };
     case 'personalizado':
       return {
         ...common,

@@ -19,7 +19,8 @@ describe('exportação', () => {
     const files = unzipSync(buildXlsx(r, true, ['Premissa A', 'Premissa <B> & C']));
     expect(Object.keys(files)).toEqual(expect.arrayContaining(['[Content_Types].xml', 'xl/workbook.xml', 'xl/worksheets/sheet1.xml', 'xl/worksheets/sheet2.xml', 'xl/styles.xml']));
     const sheet = strFromU8(files['xl/worksheets/sheet1.xml']);
-    expect((sheet.match(/<row /g) ?? []).length).toBe(361);
+    expect((sheet.match(/<row /g) ?? []).length).toBe(363); // cabeçalho + 360 + linha vazia + aviso
+    expect(sheet).toContain('Premissa &lt;B&gt; &amp; C');
     expect(sheet).toContain('<v>1582.42</v>'.replace('1582.42', '17.8')); // rendimento mês 1 numérico
     expect(strFromU8(files['xl/worksheets/sheet2.xml'])).toContain('Premissa &lt;B&gt; &amp; C');
   });

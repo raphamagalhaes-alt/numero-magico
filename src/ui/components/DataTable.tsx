@@ -42,7 +42,7 @@ function DataTableImpl({ result, showReal, showContrib }: { result: SimulationRe
   return (
     <section aria-label="Tabela detalhada" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="label">Tabela detalhada · 360 meses</h3>
+        <h2 className="label">Tabela detalhada · 360 meses</h2>
         <div className="flex items-center gap-3 text-xs text-mist-400">
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-gold-500/40 ring-1 ring-gold-500" aria-hidden />Recorde de compras</span>
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-gain-500/30 ring-1 ring-gain-500" aria-hidden />Meta atingida</span>

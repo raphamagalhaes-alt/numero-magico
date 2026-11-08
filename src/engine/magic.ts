@@ -24,7 +24,7 @@ export function magicNumber(price: Numeric, dividend: Numeric, desiredShares: nu
   const netFactor = D.max(ZERO, dec(1).sub(tax));
 
   if (d.lte(0) || netFactor.isZero()) {
-    return { finite: false, shares: 0, theoreticalShares: 0, quantizationAdjusted: false, targetCost, initialFees: ZERO, initialInvestment: ZERO, firstIncome: ZERO };
+    return { finite: false, shares: 0, theoreticalShares: 0, quantizationAdjusted: false, targetCost, initialFees: ZERO, initialInvestment: ZERO, firstIncome: ZERO, firstNetIncome: ZERO };
   }
 
   const theoretical = targetCost.div(d.mul(netFactor)).toDecimalPlaces(0, D.ROUND_CEIL).toNumber();
@@ -45,5 +45,6 @@ export function magicNumber(price: Numeric, dividend: Numeric, desiredShares: nu
     initialFees,
     initialInvestment: p.mul(n).add(initialFees),
     firstIncome: toCents(d.mul(n)),
+    firstNetIncome: net(n),
   };
 }

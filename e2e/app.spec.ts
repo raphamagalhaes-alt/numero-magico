@@ -14,7 +14,7 @@ const setField = async (page: import('@playwright/test').Page, id: string, v: st
 test('modo demonstração: número mágico, investimento e 360 linhas', async ({ page }) => {
   await expect(page.getByTestId('magic-shares')).toHaveText('178');
   await expect(page.getByTestId('magic-investment')).toHaveText('R$ 1.582,42');
-  await expect(page.getByTestId('status-badge')).toContainText('exemplo original');
+  await expect(page.getByTestId('status-badge')).toContainText('Exemplo didático');
   await expect(page.locator('[data-testid=sim-table] tbody tr')).toHaveCount(360);
   const m1 = page.locator('tr[data-month="1"]');
   await expect(m1).toContainText('R$ 17,80');
@@ -39,7 +39,7 @@ test('dividendo zero e parâmetro inválido', async ({ page }) => {
   await expect(page.getByText('O preço da cota deve ser maior que zero.')).toBeVisible();
   await page.getByTestId('restore').click();
   await expect(page.getByTestId('magic-shares')).toHaveText('178');
-  await expect(page.getByTestId('status-badge')).toContainText('exemplo original');
+  await expect(page.getByTestId('status-badge')).toContainText('Exemplo didático');
 });
 
 test('aba Aportes: aporte a partir do mês 2, reajuste no mês 13 e meta atingida', async ({ page }) => {
@@ -125,4 +125,48 @@ test('seletor de ativos: outros FIIs só com dados de mercado', async ({ page })
   await page.getByTestId('ticker').selectOption('MXRF11');
   await page.getByRole('button', { name: 'Demonstração' }).click();
   await expect(page.getByTestId('magic-shares')).toHaveText('178');
+});
+
+test('revisão: trocar de ativo consulta a API do NOVO ativo (sem closure obsoleta)', async ({ page }) => {
+  const calls: string[] = [];
+  page.on('request', (r) => { if (r.url().includes('/api/market/')) calls.push(new URL(r.url()).pathname); });
+  await page.getByRole('button', { name: 'Dados de mercado' }).click();
+  await expect(page.getByTestId('market-panel')).toContainText('MXRF11');
+  await page.getByTestId('ticker').selectOption('HGLG11');
+  await expect(page.getByTestId('market-panel')).toContainText('Dados de mercado · HGLG11');
+  await page.getByTestId('market-panel').getByRole('button', { name: 'Atualizar agora' }).click();
+  await expect.poll(() => calls.filter((c) => c.includes('HGLG11')).length).toBeGreaterThanOrEqual(2);
+  expect(calls.slice(calls.findIndex((c) => c.includes('HGLG11')))).not.toContain('/api/market/MXRF11/refresh');
+});
+
+test('revisão: localStorage adulterado não derruba o app', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('mxrf:form', '{"price":9,"dividend":null}');
+    localStorage.setItem('mxrf:prefs', '{"tab":"xyz","ticker":"constructor"}');
+  });
+  await page.reload();
+  await expect(page.getByTestId('magic-shares')).toHaveText('178');
+});
+
+test('revisão: link compartilhável reproduz o cenário', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await setField(page, 'in-price', '8,80');
+  await setField(page, 'in-dividend', '0,095');
+  await page.getByTestId('share').click();
+  await expect(page.getByTestId('share')).toContainText('Link copiado');
+  const url = await page.evaluate(() => navigator.clipboard.readText());
+  expect(url).toContain('t=MXRF11');
+  await page.evaluate(() => localStorage.clear());
+  await page.goto(url);
+  await expect(page.getByTestId('magic-shares')).toHaveText('186');
+  await expect(page.getByTestId('status-badge')).toHaveText('Cenário personalizado');
+});
+
+test('revisão: campo inválido mantém o último resultado (esmaecido) e o modo mercado sem dados não finge cotação', async ({ page }) => {
+  await setField(page, 'in-price', 'abc');
+  await expect(page.getByText('Exibindo o último resultado válido')).toBeVisible();
+  await expect(page.getByTestId('magic-shares')).toHaveText('178');
+  await page.getByTestId('restore').click();
+  await page.getByRole('button', { name: 'Dados de mercado' }).click();
+  await expect(page.getByTestId('status-badge')).toHaveText('Sem cotação — usando valores de exemplo');
 });

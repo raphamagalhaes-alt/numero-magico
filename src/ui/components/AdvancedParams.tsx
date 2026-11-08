@@ -7,8 +7,8 @@ const HELP: Partial<Record<FormField, string>> = {
   paymentLag: 'Dias úteis entre a data-com e o pagamento. No MXRF11, os avisos oficiais recentes mostram 10 dias úteis. Atualizado automaticamente com dados de mercado.',
   costPct: 'Custos proporcionais por ordem (corretagem percentual + emolumentos e liquidação da B3). Consulte a tabela vigente da sua corretora e da B3.',
   costFixed: 'Corretagem fixa por ordem executada, em reais. Muitas corretoras cobram zero.',
-  dividendTaxPct: 'IR retido sobre os rendimentos. Para pessoa física, rendimentos de FII podem ser isentos se o fundo e o cotista cumprirem os requisitos legais; o aviso oficial informa a isenção.',
-  cgTaxPct: 'IR sobre ganho de capital na venda de cotas de FII (20% para pessoa física). Usado no patrimônio líquido em caso de venda total.',
+  dividendTaxPct: 'IR retido sobre os rendimentos. Para pessoa física, a isenção de rendimentos de FII depende de requisitos do fundo e do próprio cotista (por exemplo, participação máxima no fundo); sem isenção há retenção na fonte. A legislação pode mudar — consulte a regra vigente e informe aqui a alíquota do seu caso.',
+  cgTaxPct: 'IR sobre ganho de capital na venda de cotas de FII (20% para pessoa física, sem a faixa de isenção mensal das ações; prejuízos podem ser compensados — consulte a legislação vigente). Usado no patrimônio líquido em caso de venda total.',
   cashYieldPct: 'Remuneração anual do saldo residual que fica em caixa entre as compras (ex.: conta remunerada). Juros truncados em centavos.',
 };
 
@@ -20,14 +20,14 @@ export function AdvancedParams({ form, errors, edit }: { form: FormState; errors
     <details className="no-print card group p-5" data-testid="advanced">
       <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-mist-200 hover:text-gold-300">
         <SlidersHorizontal size={15} className="text-gold-400" aria-hidden />
-        Premissas avançadas — datas reais, custos, impostos e caixa
+        Premissas avançadas — datas de pagamento, custos, impostos e caixa
         <span className="ml-auto text-xs text-mist-500 group-open:hidden">expandir</span>
       </summary>
       <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-7">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="in-startMonth" className="label">1º pagamento</label>
           <input id="in-startMonth" data-testid="in-startMonth" type="month" className={`input num ${errors.startMonth ? 'input-error' : ''}`} value={form.startMonth} onChange={(e) => edit('startMonth')(e.target.value)} />
-          {errors.startMonth && <p role="alert" className="text-xs text-loss-400">{errors.startMonth}</p>}
+          {errors.startMonth && <p className="text-xs text-loss-400">{errors.startMonth}</p>}
         </div>
         {f('paymentLag', 'Prazo de pagamento', { suffix: 'd.u.', inputMode: 'numeric' })}
         {f('costPct', 'Custo por ordem', { suffix: '%' })}

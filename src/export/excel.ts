@@ -39,6 +39,8 @@ export function buildXlsx(result: SimulationResult, includeReal: boolean, meta: 
   const styleOf = (h: string) => (!h.includes('(R$') ? 4 : /^(Preço|Dividendo|Saldo)/.test(h) ? 3 : 2);
   const rows: Cell[][] = [cols.map((c) => ({ v: c.header, style: 1 }))];
   for (const r of result.rows) rows.push(cols.map((c) => (c.numeric ? { v: c.numeric(r), style: styleOf(c.header) } : { v: String(c.value(r)) })));
+  // aviso também na planilha principal (não só em Premissas)
+  rows.push([], [{ v: meta[meta.length - 1] ?? '' }]);
   const files: Record<string, Uint8Array> = {
     '[Content_Types].xml': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`),
     '_rels/.rels': strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`),

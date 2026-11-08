@@ -23,10 +23,10 @@ export class ManualFileProvider implements MarketDataProvider {
   }
 
   async fetchSnapshot(ticker: string): Promise<MarketSnapshot> {
-    if (!existsSync(this.path)) throw new Error(`Arquivo de dados manuais não encontrado: ${this.path}`);
+    if (!existsSync(this.path)) throw new Error('Arquivo de dados manuais não encontrado no servidor.');
     const all = JSON.parse(readFileSync(this.path, 'utf8')) as Record<string, Omit<MarketSnapshot, 'fetchedAt' | 'provider' | 'ticker'>>;
     const entry = all[ticker];
-    if (!entry) throw new Error(`Sem dados manuais para ${ticker}. Preencha ${this.path} com valores de fontes oficiais.`);
+    if (!entry) throw new Error(`Sem dados manuais para ${ticker} no servidor.`);
     return { ...entry, ticker, provider: this.name, fetchedAt: new Date().toISOString() };
   }
 }
