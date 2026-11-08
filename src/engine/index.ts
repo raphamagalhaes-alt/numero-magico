@@ -4,3 +4,5 @@ export * from './validation';
 export * from './magic';
 export * from './simulate';
 export * from './strategies';
+export * from './costs';
+export * from './calendar';

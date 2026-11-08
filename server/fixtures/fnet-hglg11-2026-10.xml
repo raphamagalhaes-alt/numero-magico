@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<DadosEconomicoFinanceiros>
+	<DadosGerais>
+		<NomeFundo>PÁTRIA LOG - FUNDO DE INVESTIMENTO IMOBILIÁRIO</NomeFundo>
+		<CNPJFundo>11728688000147</CNPJFundo>
+		<NomeAdministrador>GENIAL INVESTIMENTOS CORRETORA DE VALORES MOBILIÁRIOS S.A.
+</NomeAdministrador>
+		<CNPJAdministrador>27652684000162</CNPJAdministrador>
+		<ResponsavelInformacao>Matheus Chamusca</ResponsavelInformacao>
+		<TelefoneContato>(21) 3984-3215</TelefoneContato>
+		<DataInformacao>2026-10-30</DataInformacao>
+		<Ano>2026</Ano>
+	</DadosGerais>
+	<InformeRendimentos>
+		<Provento>
+			<CodISIN>BRHGLGCTF004</CodISIN>
+			<CodNegociacao>HGLG11</CodNegociacao>
+			<Rendimento>
+				<AtoSocietarioAprovacao/>
+				<DataBase>2026-10-30</DataBase>
+				<ValorProvento>1.17</ValorProvento>
+				<DataPagamento>2026-11-16</DataPagamento>
+				<PeriodoReferencia>OUTUBRO</PeriodoReferencia>
+				<RendimentoIsentoIR>Sim</RendimentoIsentoIR>
+			</Rendimento>
+		</Provento>
+		<Provento>
+			<CodISIN>BRHGLGR26M17</CodISIN>
+			<CodNegociacao>HGLG13 </CodNegociacao>
+			<Rendimento>
+				<AtoSocietarioAprovacao/>
+				<DataBase>2026-10-30</DataBase>
+				<ValorProvento>1.17</ValorProvento>
+				<DataPagamento>2026-11-16</DataPagamento>
+				<PeriodoReferencia>OUTUBRO</PeriodoReferencia>
+				<RendimentoIsentoIR>Sim</RendimentoIsentoIR>
+			</Rendimento>
+		</Provento>
+	</InformeRendimentos>
+</DadosEconomicoFinanceiros>

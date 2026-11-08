@@ -23,14 +23,14 @@ export const marketApi = {
 
 /** Snapshot digitado pelo usuário no navegador (modo manual sem servidor). */
 export function manualSnapshot(ticker: string, f: {
-  price: string; tradedAt: string; priceSource: string;
+  price: string; tradedAt: string; sessionDate: string; priceSource: string;
   dividend: string; dividendKind: 'anunciado' | 'pago'; recordDate: string; paymentDate: string; dividendSource: string;
 }): MarketSnapshot {
   const ev = { amountPerShare: f.dividend, recordDate: f.recordDate, paymentDate: f.paymentDate, source: f.dividendSource };
   return {
     ticker,
     provider: 'manual (navegador)',
-    lastTrade: { price: f.price, tradedAt: f.tradedAt, source: f.priceSource },
+    lastTrade: { price: f.price, tradedAt: f.tradedAt, sessionDate: f.sessionDate, kind: 'negocio', source: f.priceSource },
     lastPaidDividend: f.dividendKind === 'pago' ? ev : null,
     lastAnnouncedDividend: f.dividendKind === 'anunciado' ? ev : null,
     fetchedAt: new Date().toISOString(),

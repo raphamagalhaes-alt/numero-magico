@@ -1,16 +1,17 @@
 import { D, ONE, ZERO, dec, toCents, truncate, type Dec } from './decimal';
 import { magicNumber } from './magic';
+import { addBusinessDays, addMonths, lastBusinessDayOfMonth } from './calendar';
+import { affordableShares, costModel, orderFees, orderTotal } from './costs';
 import type { MonthRow, SimulationInput, SimulationResult, SimulationSummary } from './types';
 import { InvalidSimulationInput, validateInput } from './validation';
 
 const DIVIDEND_PLACES = 6;
+export const DEFAULT_PAYMENT_LAG = 10;
 
-/** Índice do ano de simulação (0 para meses 1–12, 1 para 13–24, ...). */
 export function yearIndex(month: number): number {
   return Math.floor((month - 1) / 12);
 }
 
-/** Preço no mês t: preço inicial × (1 + g)^anoIndex, em centavos quando há variação. */
 export function priceAt(input: SimulationInput, month: number): Dec {
   const p0 = dec(input.price);
   const g = dec(input.priceAnnualChange);
@@ -27,7 +28,6 @@ export function dividendAt(input: SimulationInput, month: number): Dec {
   return truncate(d0.mul(ONE.add(cut)).mul(ONE.add(g).pow(yearIndex(month))), DIVIDEND_PLACES);
 }
 
-/** Aporte do mês t: zero antes do mês inicial; reajustado uma vez por ano pela inflação. */
 export function contributionAt(input: SimulationInput, month: number): Dec {
   const base = dec(input.monthlyContribution);
   if (month < input.contributionStartMonth || base.isZero()) return ZERO;
@@ -35,20 +35,37 @@ export function contributionAt(input: SimulationInput, month: number): Dec {
   return toCents(base.mul(ONE.add(dec(input.inflationAnnual)).pow(yearIndex(month))));
 }
 
-/** Fator de deflação (1 + inflação)^(t/12), com mês 0 como data-base. */
 export function deflatorAt(inflationAnnual: Dec, month: number): Dec {
   if (inflationAnnual.isZero()) return ONE;
   return ONE.add(inflationAnnual).pow(new D(month).div(12));
+}
+
+/**
+ * Datas do mês t: o rendimento pago no mês t refere-se às cotas detidas na data-com
+ * (último dia útil do mês anterior) e é pago N dias úteis depois. As cotas compradas
+ * no pagamento estão em carteira na data-com seguinte — por isso só rendem no mês t+1.
+ */
+export function datesAt(startMonth: string, month: number, lag: number): { recordDate: string; paymentDate: string } {
+  const payMonth = addMonths(startMonth, month - 1);
+  const recordDate = lastBusinessDayOfMonth(addMonths(payMonth, -1));
+  return { recordDate, paymentDate: addBusinessDays(recordDate, lag) };
 }
 
 export function simulate(input: SimulationInput): SimulationResult {
   const issues = validateInput(input);
   if (issues.length) throw new InvalidSimulationInput(issues);
 
-  const magic = magicNumber(input.price, input.dividend, input.desiredShares);
+  const costs = costModel(input.tradingCostPct ?? 0, input.tradingCostFixed ?? 0);
+  const taxRate = dec(input.dividendTaxRate ?? 0);
+  const cgRate = dec(input.capitalGainsTaxRate ?? 0);
+  const cashMonthly = dec(input.cashYieldAnnual ?? 0).isZero() ? ZERO : ONE.add(dec(input.cashYieldAnnual!)).pow(new D(1).div(12)).sub(1);
+  const lag = input.paymentLagBusinessDays ?? DEFAULT_PAYMENT_LAG;
+
+  const magic = magicNumber(input.price, input.dividend, input.desiredShares, input);
   const initialShares = input.initialSharesOverride ?? magic.shares;
   const p0 = dec(input.price);
-  const initialInvestment = p0.mul(initialShares);
+  const initialFees = orderFees(initialShares, p0, costs);
+  const initialInvestment = p0.mul(initialShares).add(initialFees);
   const inflation = dec(input.inflationAnnual);
   const reinvestRatio = dec(input.reinvestRatio);
   const goal = dec(input.incomeGoal);
@@ -56,55 +73,69 @@ export function simulate(input: SimulationInput): SimulationResult {
   const rows: MonthRow[] = [];
   let shares = initialShares;
   let cash = ZERO;
-  let cumContributions = ZERO;
-  let cumIncome = ZERO;
-  let cumReinvested = ZERO;
-  let cumWithdrawn = ZERO;
+  let costBasis = initialInvestment;
+  let cumContributions = ZERO, cumIncome = ZERO, cumReinvested = ZERO, cumWithdrawn = ZERO;
+  let cumFees = initialFees, cumTax = ZERO, cumInterest = ZERO;
   let maxBought = 0;
   let goalMonth: number | null = null;
 
   for (let t = 1; t <= input.months; t++) {
-    // 1. cotas no início do mês
+    const dates = input.startMonth ? datesAt(input.startMonth, t, lag) : { recordDate: null, paymentDate: null };
+    // 1. cotas no início do mês (detidas na data-com)
     const sharesStart = shares;
     const price = priceAt(input, t);
     const dps = dividendAt(input, t);
-    // 2–3. rendimento das cotas elegíveis, em centavos (half-up)
+    // 2–3. rendimento bruto em centavos (half-up); IR retido, se houver
     const income = toCents(dps.mul(sharesStart));
-    const reinvested = reinvestRatio.eq(1) ? income : toCents(income.mul(reinvestRatio));
-    const withdrawn = income.sub(reinvested);
+    const dividendTax = taxRate.isZero() ? ZERO : toCents(income.mul(taxRate));
+    const netIncome = income.sub(dividendTax);
+    const reinvested = reinvestRatio.eq(1) ? netIncome : toCents(netIncome.mul(reinvestRatio));
+    const withdrawn = netIncome.sub(reinvested);
     const contribution = contributionAt(input, t);
-    // 4. disponível = rendimento reinvestido + aporte + sobra anterior
+    // remuneração da sobra anterior (truncada em centavos: nunca cria dinheiro)
     const cashCarry = cash;
-    const available = reinvested.add(contribution).add(cashCarry);
-    // 5. cotas inteiras compráveis
-    const sharesBought = available.div(price).toDecimalPlaces(0, D.ROUND_FLOOR).toNumber();
-    // 6–7. custo e sobra
-    const purchaseCost = price.mul(sharesBought);
+    const cashInterest = cashMonthly.isZero() ? ZERO : truncate(cashCarry.mul(cashMonthly), 2);
+    // 4. disponível
+    const available = reinvested.add(contribution).add(cashCarry).add(cashInterest);
+    // 5–7. compra de cotas inteiras, com custos de negociação
+    const sharesBought = affordableShares(available, price, costs);
+    const purchaseFees = orderFees(sharesBought, price, costs);
+    const purchaseCost = orderTotal(sharesBought, price, costs);
     const cashEnd = available.sub(purchaseCost);
-    if (cashEnd.lt(0)) throw new Error(`Saldo negativo no mês ${t}`); // invariante
-    // 8. cotas no encerramento
+    if (cashEnd.lt(0)) throw new Error(`Saldo negativo no mês ${t}`);
+    // 8–10.
     const sharesEnd = sharesStart + sharesBought;
-    // 9–10. valor de mercado e patrimônio total
     const sharesValue = price.mul(sharesEnd);
     const totalEquity = sharesValue.add(cashEnd);
-    // 11. acumulados e indicadores
+    costBasis = costBasis.add(purchaseCost);
+    // valor líquido em caso de venda total: custos de venda + IR sobre ganho de capital
+    const saleFees = orderFees(sharesEnd, price, costs);
+    const gain = sharesValue.sub(saleFees).sub(costBasis);
+    const cgTax = gain.gt(0) ? toCents(gain.mul(cgRate)) : ZERO;
+    const liquidationCosts = saleFees.add(cgTax);
+    const netLiquidationEquity = totalEquity.sub(liquidationCosts);
+    // 11.
     cumContributions = cumContributions.add(contribution);
     cumIncome = cumIncome.add(income);
     cumReinvested = cumReinvested.add(reinvested);
     cumWithdrawn = cumWithdrawn.add(withdrawn);
+    cumFees = cumFees.add(purchaseFees);
+    cumTax = cumTax.add(dividendTax);
+    cumInterest = cumInterest.add(cashInterest);
     const deflator = deflatorAt(inflation, t);
-    const realIncome = income.div(deflator);
+    const realIncome = netIncome.div(deflator);
     const realEquity = totalEquity.div(deflator);
-    const goalIncome = input.incomeGoalBasis === 'real' ? realIncome : income;
+    const goalIncome = input.incomeGoalBasis === 'real' ? realIncome : netIncome;
     const isGoalMonth = goalMonth === null && goal.gt(0) && goalIncome.gte(goal);
     if (isGoalMonth) goalMonth = t;
     const isPurchaseRecord = sharesBought > maxBought;
     if (isPurchaseRecord) maxBought = sharesBought;
 
     rows.push({
-      month: t, year: yearIndex(t) + 1, monthOfYear: ((t - 1) % 12) + 1,
-      sharesStart, price, dividendPerShare: dps, income, reinvested, withdrawn, contribution,
-      cashCarry, available, sharesBought, purchaseCost, cashEnd, sharesEnd, sharesValue, totalEquity,
+      month: t, ...dates, year: yearIndex(t) + 1, monthOfYear: ((t - 1) % 12) + 1,
+      sharesStart, price, dividendPerShare: dps, income, dividendTax, netIncome, cashInterest,
+      reinvested, withdrawn, contribution, cashCarry, available, sharesBought, purchaseCost, purchaseFees,
+      cashEnd, sharesEnd, sharesValue, totalEquity, costBasis, liquidationCosts, netLiquidationEquity,
       cumContributions, cumIncome, cumReinvested, cumWithdrawn,
       deflator, realIncome, realEquity, goalIncome, isPurchaseRecord, isGoalMonth,
     });
@@ -114,12 +145,11 @@ export function simulate(input: SimulationInput): SimulationResult {
 
   const last = rows[rows.length - 1];
   const totalInvested = initialInvestment.add(cumContributions);
-  const lastIncome = last.goalIncome;
   const summary: SimulationSummary = {
     initialShares,
     initialInvestment,
     finalShares: last.sharesEnd,
-    finalIncome: last.income,
+    finalIncome: last.netIncome,
     finalRealIncome: last.realIncome,
     finalEquity: last.totalEquity,
     finalRealEquity: last.realEquity,
@@ -130,17 +160,21 @@ export function simulate(input: SimulationInput): SimulationResult {
     totalIncome: cumIncome,
     totalReinvested: cumReinvested,
     totalWithdrawn: cumWithdrawn,
+    totalFees: cumFees,
+    totalDividendTax: cumTax,
+    totalCashInterest: cumInterest,
+    finalLiquidationCosts: last.liquidationCosts,
+    finalNetLiquidationEquity: last.netLiquidationEquity,
     growthOverInvested: last.totalEquity.sub(totalInvested),
     growthPct: totalInvested.isZero() ? ZERO : last.totalEquity.div(totalInvested).sub(1),
     purchasingPowerLoss: last.totalEquity.sub(last.realEquity),
     goalMonth,
-    goalProgress: goal.isZero() ? ONE : D.min(ONE, lastIncome.div(goal)),
+    goalProgress: goal.isZero() ? ONE : D.min(ONE, last.goalIncome.div(goal)),
   };
 
   return { input, magic, rows, summary };
 }
 
-/** Converte o mês da conquista em "X anos e Y meses". */
 export function monthsToYearsMonths(month: number): { years: number; months: number } {
   return { years: Math.floor(month / 12), months: month % 12 };
 }

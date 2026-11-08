@@ -12,11 +12,11 @@ export function GoalBanner({ result }: { result: SimulationResult }) {
       <Target size={20} className={goalMonth ? 'text-gain-400' : 'text-loss-400'} aria-hidden />
       <div className="flex-1">
         {goalMonth ? (
-          <p className="font-medium text-gain-400">Meta atingida no mês {goalMonth} — {yearsMonthsLabel(goalMonth)} de simulação.</p>
+          <p className="font-medium text-gain-400">Meta atingida no mês {goalMonth} — {yearsMonthsLabel(goalMonth)} de simulação.{result.rows[goalMonth - 1].paymentDate ? ` Pagamento previsto: ${result.rows[goalMonth - 1].paymentDate!.split('-').reverse().join('/')}.` : ''}</p>
         ) : (
           <p className="font-medium text-loss-400">Meta não atingida em 360 meses.</p>
         )}
-        <p className="text-xs text-mist-400">Meta de renda {basis}: {goal}/mês. Considera a renda das cotas no início do mês, antes do reinvestimento.</p>
+        <p className="text-xs text-mist-400">Meta de renda {basis}: {goal}/mês. Considera a renda líquida das cotas detidas na data-com, antes do reinvestimento.</p>
       </div>
       <div className="w-full sm:w-56">
         <div className="flex justify-between text-xs text-mist-400"><span>Progresso</span><span className="num">{fmtPct(goalProgress, 1)}</span></div>
@@ -42,6 +42,14 @@ export function ExecutiveSummary({ result, showReal, showContrib }: { result: Si
       {showReal && <Stat label="Patrimônio real" value={fmtBRL(s.finalRealEquity)} help="Patrimônio do mês 360 em poder de compra do mês 0: nominal / (1 + inflação)^(t/12)." sub={<span className="text-loss-400">Perda de poder de compra: {fmtBRL(s.purchasingPowerLoss)}</span>} />}
       <Stat label="Crescimento patrimonial" value={fmtBRL(s.growthOverInvested)} tone={growthTone} help="Patrimônio final menos todo o capital aportado (inicial + aportes)." sub={`${fmtPct(s.growthPct, 1)} sobre o capital aportado`} />
       <Stat label="Dividendos recebidos" value={fmtBRL(s.totalIncome)} help="Soma de todos os rendimentos recebidos em 360 meses." sub={`Reinvestidos: ${fmtBRL(s.totalReinvested)}`} />
+      <Stat label="Líquido se vendido no mês 360" value={fmtBRL(s.finalNetLiquidationEquity)} testId="net-liquidation"
+        help="Patrimônio total menos custos de venda e IR sobre ganho de capital (alíquota das premissas avançadas), se todas as cotas fossem vendidas ao preço do mês 360."
+        sub={`IR + custos na venda: ${fmtBRL(s.finalLiquidationCosts)}`} />
+      {(s.totalFees.gt(0) || s.totalDividendTax.gt(0) || s.totalCashInterest.gt(0)) && (
+        <Stat label="Custos, IR e juros do caixa" value={fmtBRL(s.totalFees.add(s.totalDividendTax))}
+          help="Custos de negociação pagos nas compras + IR retido sobre rendimentos, em 360 meses. Juros do caixa somam ao disponível."
+          sub={`Custos ${fmtBRL(s.totalFees)} · IR ${fmtBRL(s.totalDividendTax)} · Juros ${fmtBRL(s.totalCashInterest)}`} />
+      )}
       <Stat label="Meta de renda" value={s.goalMonth ? `Mês ${s.goalMonth}` : 'Não atingida'} tone={s.goalMonth ? 'gain' : 'loss'} sub={`${fmtPct(s.goalProgress, 1)} da meta`} />
     </section>
   );

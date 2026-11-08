@@ -39,12 +39,17 @@ describe('calendário B3', () => {
     expect(shouldRunOn(new Date('2026-11-09T12:00:00Z')).run).toBe(true);
     expect(nextNineAm(new Date('2026-11-09T11:59:00Z'))).toBe('2026-11-09T12:00:00.000Z');
     expect(nextNineAm(new Date('2026-11-09T12:00:01Z'))).toBe('2026-11-10T12:00:00.000Z');
+    expect(nextNineAm(new Date('2026-11-08T03:00:00Z'))).toBe('2026-11-09T12:00:00.000Z'); // domingo → segunda
+    expect(nextNineAm(new Date('2026-11-19T13:00:00Z'))).toBe('2026-11-23T12:00:00.000Z'); // pula feriado 20/11 e fim de semana
   });
   it('dados desatualizados', () => {
     const now = new Date('2026-11-09T13:00:00Z'); // segunda 10h
-    expect(isStale('2026-11-06T18:00:00-03:00', '2026-11-09T12:00:00Z', now)).toBe(false);
-    expect(isStale('2026-11-05T18:00:00-03:00', '2026-11-09T12:00:00Z', now)).toBe(true);
+    expect(isStale('2026-11-06', '2026-11-09T12:00:00Z', now)).toBe(false);
+    expect(isStale('2026-11-05', '2026-11-09T12:00:00Z', now)).toBe(true);
     expect(isStale(null, null, now)).toBe(true);
+    // pregão em andamento: às 15h de segunda ainda vale o fechamento de sexta; às 22h exige o de segunda
+    expect(isStale('2026-11-06', '2026-11-09T18:00:00Z', new Date('2026-11-09T18:00:00Z'))).toBe(false);
+    expect(isStale('2026-11-06', '2026-11-09T18:00:00Z', new Date('2026-11-10T01:00:00Z'))).toBe(true);
   });
 });
 

@@ -18,20 +18,27 @@ const precise = (pick: (r: MonthRow) => { toFixed(): string; decimalPlaces(): nu
 });
 
 export function exportColumns(includeReal: boolean): ExportColumn[] {
+  const date = (iso: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
   const cols: ExportColumn[] = [
     { header: 'Ano', value: (r) => r.year, numeric: (r) => r.year },
     { header: 'Mês', value: (r) => r.month, numeric: (r) => r.month },
+    { header: 'Data-com', value: (r) => date(r.recordDate) },
+    { header: 'Pagamento/compra', value: (r) => date(r.paymentDate) },
     { header: 'Cotas iniciais', value: (r) => r.sharesStart, numeric: (r) => r.sharesStart },
     { header: 'Aporte (R$)', ...money((r) => r.contribution) },
     { header: 'Preço da cota (R$)', ...precise((r) => r.price) },
     { header: 'Dividendo por cota (R$)', ...precise((r) => r.dividendPerShare) },
     { header: 'Rendimento recebido (R$)', ...money((r) => r.income) },
+    { header: 'IR retido (R$)', ...money((r) => r.dividendTax) },
+    { header: 'Juros do caixa (R$)', ...money((r) => r.cashInterest) },
     { header: 'Dividendos retirados (R$)', ...money((r) => r.withdrawn) },
     { header: 'Cotas compradas', value: (r) => r.sharesBought, numeric: (r) => r.sharesBought },
+    { header: 'Custos de negociação (R$)', ...money((r) => r.purchaseFees) },
     { header: 'Cotas finais', value: (r) => r.sharesEnd, numeric: (r) => r.sharesEnd },
     { header: 'Saldo residual (R$)', ...precise((r) => r.cashEnd) },
     { header: 'Valor das cotas (R$)', ...money((r) => r.sharesValue) },
     { header: 'Patrimônio total (R$)', ...money((r) => r.totalEquity) },
+    { header: 'Patrimônio líquido se vendido (R$)', ...money((r) => r.netLiquidationEquity) },
   ];
   if (includeReal) {
     cols.push({ header: 'Renda real (R$ de hoje)', ...money((r) => r.realIncome) });

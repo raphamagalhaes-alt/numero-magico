@@ -11,6 +11,13 @@ export interface FormState {
   contribution: string;
   incomeGoal: string;
   incomeGoalBasis: 'nominal' | 'real';
+  startMonth: string;
+  paymentLag: string;
+  costPct: string;
+  costFixed: string;
+  dividendTaxPct: string;
+  cgTaxPct: string;
+  cashYieldPct: string;
 }
 export type FormField = Exclude<keyof FormState, 'incomeGoalBasis'>;
 
@@ -27,42 +34,59 @@ export function toBR(engineValue: string, minPlaces = 2): string {
   const d = dec(engineValue);
   return fmtDecimal(d, Math.max(minPlaces, d.decimalPlaces()));
 }
+const pctBR = (frac: string) => toBR(dec(frac).mul(100).toFixed(), 0);
 
 export function formFromParams(p: BaseParams): FormState {
   return {
     price: toBR(p.price),
     dividend: toBR(p.dividend),
     desiredShares: String(p.desiredShares),
-    inflationPct: toBR(dec(p.inflationAnnual).mul(100).toFixed(), 0),
+    inflationPct: pctBR(p.inflationAnnual),
     contribution: toBR(p.monthlyContribution),
     incomeGoal: toBR(p.incomeGoal),
     incomeGoalBasis: p.incomeGoalBasis,
+    startMonth: p.startMonth,
+    paymentLag: String(p.paymentLagBusinessDays),
+    costPct: pctBR(p.tradingCostPct),
+    costFixed: toBR(p.tradingCostFixed),
+    dividendTaxPct: pctBR(p.dividendTaxRate),
+    cgTaxPct: pctBR(p.capitalGainsTaxRate),
+    cashYieldPct: pctBR(p.cashYieldAnnual),
   };
 }
 
 const FIELD_OF: Partial<Record<keyof SimulationInput, FormField>> = {
   price: 'price', dividend: 'dividend', desiredShares: 'desiredShares', inflationAnnual: 'inflationPct',
-  monthlyContribution: 'contribution', incomeGoal: 'incomeGoal',
+  monthlyContribution: 'contribution', incomeGoal: 'incomeGoal', startMonth: 'startMonth',
+  paymentLagBusinessDays: 'paymentLag', tradingCostPct: 'costPct', tradingCostFixed: 'costFixed',
+  dividendTaxRate: 'dividendTaxPct', capitalGainsTaxRate: 'cgTaxPct', cashYieldAnnual: 'cashYieldPct',
 };
 
 export function paramsFromForm(f: FormState, ticker: string): { params: BaseParams | null; errors: Partial<Record<FormField, string>> } {
   const errors: Partial<Record<FormField, string>> = {};
   const num = (k: FormField) => {
-    const v = parseBR(f[k]);
+    const v = parseBR(f[k] ?? '');
     if (v === null) errors[k] = 'Número inválido.';
     return v ?? '0';
   };
-  const price = num('price');
-  const dividend = num('dividend');
-  const ds = num('desiredShares');
-  const infl = num('inflationPct');
-  const contribution = num('contribution');
-  const goal = num('incomeGoal');
-  const desiredShares = Number(ds);
+  const frac = (k: FormField) => dec(num(k)).div(100).toFixed();
+  const lag = num('paymentLag');
   const params: BaseParams = {
-    ticker, price, dividend, desiredShares,
-    inflationAnnual: dec(infl).div(100).toFixed(),
-    monthlyContribution: contribution, incomeGoal: goal, incomeGoalBasis: f.incomeGoalBasis,
+    ticker,
+    price: num('price'),
+    dividend: num('dividend'),
+    desiredShares: Number(num('desiredShares')),
+    inflationAnnual: frac('inflationPct'),
+    monthlyContribution: num('contribution'),
+    incomeGoal: num('incomeGoal'),
+    incomeGoalBasis: f.incomeGoalBasis,
+    startMonth: f.startMonth ?? '',
+    paymentLagBusinessDays: Number(lag),
+    tradingCostPct: frac('costPct'),
+    tradingCostFixed: num('costFixed'),
+    dividendTaxRate: frac('dividendTaxPct'),
+    capitalGainsTaxRate: frac('cgTaxPct'),
+    cashYieldAnnual: frac('cashYieldPct'),
   };
   for (const issue of validateInput(inputForTab(params, 'aportes'))) {
     const k = FIELD_OF[issue.field];

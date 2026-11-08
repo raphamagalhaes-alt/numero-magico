@@ -8,7 +8,7 @@ export default defineConfig({
   use: { baseURL: 'http://localhost:4173', trace: 'off' },
   webServer: [
     {
-      command: 'MARKET_STORE_FILE=test-results/e2e-store.json MARKET_MANUAL_FILE=test-results/none.json PORT=8787 npx tsx server/index.ts',
+      command: 'MARKET_PROVIDER=manual MARKET_STORE_FILE=test-results/e2e-store.json MARKET_MANUAL_FILE=test-results/none.json MARKET_LEARNED_HOLIDAYS_FILE=test-results/learned.json PORT=8787 npx tsx server/index.ts',
       url: 'http://localhost:8787/api/health',
       reuseExistingServer: true,
     },

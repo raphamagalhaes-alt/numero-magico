@@ -21,6 +21,10 @@ function DivBlock({ title, ev, highlight }: { title: string; ev: DividendEvent |
         <>
           <div className="num mt-1 text-lg font-semibold">{fmtBRLPrecise(ev.amountPerShare)} <span className="text-xs font-normal text-mist-400">por cota</span></div>
           <div className="num mt-1 text-xs text-mist-300">Data-com: {d(ev.recordDate)} · Pagamento: {d(ev.paymentDate)}</div>
+          <div className="mt-0.5 text-[11px] text-mist-400">
+            {ev.referencePeriod && <>Referência: {ev.referencePeriod} · </>}
+            {ev.taxExempt === true ? 'Isento de IR (PF), conforme o aviso' : ev.taxExempt === false ? <span className="text-loss-400">Não isento de IR, conforme o aviso</span> : 'Isenção não informada'}
+          </div>
           <Src s={ev.source} url={ev.sourceUrl} />
         </>
       ) : <div className="mt-1 text-sm text-mist-500">Não disponível</div>}
@@ -37,20 +41,21 @@ export interface MarketPanelProps {
   onApply: (s: MarketSnapshot) => void;
   onSaveLocal: (s: MarketSnapshot) => void;
   isCustom: boolean;
+  ticker: string;
 }
 
-export function MarketPanel({ status, localSnapshot, loading, error, onRefresh, onApply, onSaveLocal, isCustom }: MarketPanelProps) {
+export function MarketPanel({ status, localSnapshot, loading, error, onRefresh, onApply, onSaveLocal, isCustom, ticker }: MarketPanelProps) {
   const snap = status?.snapshot ?? localSnapshot;
-  const [showForm, setShowForm] = useState(!snap);
+  const [showForm, setShowForm] = useState(false);
   const used = snap ? defaultDividend(snap) : null;
   return (
     <section aria-label="Dados de mercado" data-testid="market-panel" className="card flex flex-col gap-4 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Database size={16} className="text-gold-400" aria-hidden />
-          <h2 className="text-sm font-medium">Dados de mercado</h2>
+          <h2 className="text-sm font-medium">Dados de mercado · {ticker}</h2>
           <span className="rounded bg-ink-700 px-2 py-0.5 text-[11px] text-mist-300">
-            {status?.automaticUpdates ? `Atualização automática diária às 9h (Brasília) · ${status.providerName}` : 'Modo manual — sem atualização automática'}
+            {status?.automaticUpdates ? `Fontes oficiais · atualização automática diária às 9h (Brasília), dias de pregão` : status ? 'Modo manual — sem atualização automática' : 'Serviço de dados indisponível — modo manual no navegador'}
           </span>
         </div>
         <div className="flex gap-2">
@@ -69,11 +74,13 @@ export function MarketPanel({ status, localSnapshot, loading, error, onRefresh, 
         <>
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-lg bg-ink-850 p-3 ring-1 ring-white/5">
-              <div className="label">Último preço negociado</div>
+              <div className="label">{snap.lastTrade?.kind === 'fechamento' ? 'Último preço (fechamento oficial)' : 'Último preço negociado'}</div>
               {snap.lastTrade ? (
                 <>
                   <div className="num mt-1 text-lg font-semibold">{fmtBRLPrecise(snap.lastTrade.price)}</div>
-                  <div className="num mt-1 text-xs text-mist-300">Negócio/fechamento: {dt(snap.lastTrade.tradedAt)}</div>
+                  <div className="num mt-1 text-xs text-mist-300">
+                    {snap.lastTrade.kind === 'fechamento' ? `Fechamento do pregão de ${d(snap.lastTrade.sessionDate ?? snap.lastTrade.tradedAt)}` : `Negócio: ${dt(snap.lastTrade.tradedAt)}`}
+                  </div>
                   <Src s={snap.lastTrade.source} url={snap.lastTrade.sourceUrl} />
                 </>
               ) : <div className="mt-1 text-sm text-mist-500">Não disponível</div>}
@@ -82,7 +89,7 @@ export function MarketPanel({ status, localSnapshot, loading, error, onRefresh, 
             <DivBlock title="Último rendimento pago" ev={snap.lastPaidDividend} highlight={used?.kind === 'pago'} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-mist-400">
-            <span>Provedor: {snap.provider} · Última consulta bem-sucedida: {dt(snap.fetchedAt)}{status?.nextScheduledRun ? ` · Próxima: ${dt(status.nextScheduledRun)}` : ''}</span>
+            <span>Provedor: {snap.provider}{snap.administrator ? ` · Administrador: ${snap.administrator}` : ''}{snap.paymentLagBusinessDays !== undefined ? ` · Prazo observado data-com→pagamento: ${snap.paymentLagBusinessDays} dias úteis` : ''} · Última consulta bem-sucedida: {dt(snap.fetchedAt)}{status?.nextScheduledRun ? ` · Próxima: ${dt(status.nextScheduledRun)}` : ''}</span>
             <button type="button" className="btn btn-gold" disabled={!snap.lastTrade || !used} onClick={() => onApply(snap)}>
               {isCustom ? 'Substituir cenário personalizado pelos dados de mercado' : 'Aplicar dados à simulação'}
             </button>
@@ -90,15 +97,15 @@ export function MarketPanel({ status, localSnapshot, loading, error, onRefresh, 
           <p className="text-[11px] text-mist-500">A data da consulta não implica nova cotação: fora do pregão (noites, fins de semana e feriados) o preço permanece o do último negócio.</p>
         </>
       ) : (
-        !loading && <p className="text-sm text-mist-400">Nenhum dado de mercado configurado. Nenhuma integração licenciada está ativa neste ambiente — informe os valores manualmente a partir de documentos oficiais (aviso de rendimentos no Fundos.NET/B3) e de uma fonte de cotação autorizada.</p>
+        !loading && <p className="text-sm text-mist-400">{status?.automaticUpdates ? 'Nenhum dado de mercado disponível ainda. Clique em “Atualizar agora” para consultar a B3 e o Fundos.NET, ou informe os valores manualmente.' : 'Nenhum dado de mercado disponível. O servidor está em modo manual (MARKET_PROVIDER=manual) ou indisponível — informe os valores a partir dos documentos oficiais.'}</p>
       )}
 
-      {showForm && <ManualForm onSave={(s) => { onSaveLocal(s); setShowForm(false); }} />}
+      {showForm && <ManualForm ticker={ticker} onSave={(s) => { onSaveLocal(s); setShowForm(false); }} />}
     </section>
   );
 }
 
-function ManualForm({ onSave }: { onSave: (s: MarketSnapshot) => void }) {
+function ManualForm({ onSave, ticker }: { onSave: (s: MarketSnapshot) => void; ticker: string }) {
   const [f, setF] = useState({ price: '', tradedAt: '', priceSource: '', dividend: '', dividendKind: 'anunciado' as 'anunciado' | 'pago', recordDate: '', paymentDate: '', dividendSource: '' });
   const [err, setErr] = useState<string | null>(null);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
@@ -111,7 +118,7 @@ function ManualForm({ onSave }: { onSave: (s: MarketSnapshot) => void }) {
     if (!f.tradedAt || !f.recordDate || !f.paymentDate) return setErr('Informe as datas da cotação, data-com e pagamento.');
     if (!f.priceSource.trim() || !f.dividendSource.trim()) return setErr('Informe a fonte de cada informação.');
     setErr(null);
-    onSave(manualSnapshot('MXRF11', { ...f, price, dividend, tradedAt: new Date(f.tradedAt).toISOString() }));
+    onSave(manualSnapshot(ticker, { ...f, price, dividend, sessionDate: f.tradedAt.slice(0, 10), tradedAt: new Date(f.tradedAt).toISOString() }));
   };
   const lbl = 'flex flex-col gap-1 text-xs text-mist-400';
   return (

@@ -1,15 +1,17 @@
 import cron from 'node-cron';
-import { TZ, isTradingDay, saoPauloDate } from './calendar';
+import { TZ, addDays, isTradingDay, saoPauloDate } from './calendar';
 
 export const DAILY_CRON = '0 9 * * *';
 
-/** Próxima execução às 9h de São Paulo (Brasil sem horário de verão desde 2019: UTC−3). */
+/** Próxima execução efetiva: 9h de São Paulo (UTC−3, sem horário de verão desde 2019) em dia de pregão. */
 export function nextNineAm(now: Date): string {
-  const today = saoPauloDate(now);
-  const [y, m, d] = today.split('-').map(Number);
-  let candidate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0)); // 09:00 −03:00
-  if (candidate <= now) candidate = new Date(candidate.getTime() + 86400000);
-  return candidate.toISOString();
+  let day = saoPauloDate(now);
+  for (let i = 0; i < 30; i++, day = addDays(day, 1)) {
+    const [y, m, d] = day.split('-').map(Number);
+    const candidate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    if (candidate > now && isTradingDay(day)) return candidate.toISOString();
+  }
+  throw new Error('Sem pregão nos próximos 30 dias');
 }
 
 /** Decide se a rotina diária deve consultar o provedor neste dia. */

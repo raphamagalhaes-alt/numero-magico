@@ -1,9 +1,9 @@
 import { ASSETS, DEFAULT_TICKER } from '../assets/registry';
-import type { SimulationInput } from '../engine';
+import { saoPauloDate, type SimulationInput } from '../engine';
 
 export type MainTab = 'nominal' | 'inflacao' | 'aportes';
 
-/** Parâmetros editáveis comuns às três abas principais. */
+/** Parâmetros editáveis comuns às três abas principais (strings decimais com ponto). */
 export interface BaseParams {
   ticker: string;
   price: string;
@@ -13,19 +13,42 @@ export interface BaseParams {
   monthlyContribution: string;
   incomeGoal: string;
   incomeGoalBasis: 'nominal' | 'real';
+  startMonth: string; // AAAA-MM do 1º pagamento
+  paymentLagBusinessDays: number;
+  tradingCostPct: string; // fração
+  tradingCostFixed: string;
+  dividendTaxRate: string; // fração
+  capitalGainsTaxRate: string; // fração
+  cashYieldAnnual: string; // fração
+}
+
+export const currentMonth = (now = new Date()) => saoPauloDate(now).slice(0, 7);
+
+/** Premissas avançadas padrão: neutras, exceto o IR de 20% sobre ganho de capital em FII (pessoa física). */
+export function advancedDefaults(ticker = DEFAULT_TICKER) {
+  return {
+    startMonth: currentMonth(),
+    paymentLagBusinessDays: ASSETS[ticker]?.paymentLagBusinessDays ?? 10,
+    tradingCostPct: '0',
+    tradingCostFixed: '0',
+    dividendTaxRate: '0',
+    capitalGainsTaxRate: '0.2',
+    cashYieldAnnual: '0',
+  };
 }
 
 export function demoParams(ticker = DEFAULT_TICKER): BaseParams {
-  const a = ASSETS[ticker];
+  const demo = ASSETS[ticker]?.demo ?? ASSETS[DEFAULT_TICKER].demo!;
   return {
     ticker,
-    price: a.demo.price,
-    dividend: a.demo.dividend,
-    desiredShares: a.demo.desiredShares,
-    inflationAnnual: a.demo.inflationAnnual,
-    monthlyContribution: a.demo.monthlyContribution,
+    price: demo.price,
+    dividend: demo.dividend,
+    desiredShares: demo.desiredShares,
+    inflationAnnual: demo.inflationAnnual,
+    monthlyContribution: demo.monthlyContribution,
     incomeGoal: '1000',
     incomeGoalBasis: 'nominal',
+    ...advancedDefaults(ticker),
   };
 }
 
@@ -48,6 +71,13 @@ export function inputForTab(p: BaseParams, tab: MainTab): SimulationInput {
     reinvestRatio: '1', // abas principais: reinvestimento integral
     incomeGoal: p.incomeGoal,
     incomeGoalBasis: p.incomeGoalBasis,
+    startMonth: p.startMonth || null,
+    paymentLagBusinessDays: p.paymentLagBusinessDays,
+    tradingCostPct: p.tradingCostPct,
+    tradingCostFixed: p.tradingCostFixed,
+    dividendTaxRate: p.dividendTaxRate,
+    capitalGainsTaxRate: p.capitalGainsTaxRate,
+    cashYieldAnnual: p.cashYieldAnnual,
   };
   if (tab === 'aportes') return { ...base, monthlyContribution: p.monthlyContribution };
   return base;

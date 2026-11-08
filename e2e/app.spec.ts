@@ -45,7 +45,7 @@ test('dividendo zero e parâmetro inválido', async ({ page }) => {
 test('aba Aportes: aporte a partir do mês 2, reajuste no mês 13 e meta atingida', async ({ page }) => {
   await page.getByRole('tab', { name: 'Aportes mensais' }).click();
   await page.getByRole('button', { name: 'Todas' }).click();
-  await expect(page.locator('tr[data-month="1"] td').nth(2)).toHaveText('R$ 0,00');
+  await expect(page.locator('tr[data-month="1"] td').nth(4)).toHaveText('R$ 0,00'); // mês, data-com, pagamento, cotas, aporte
   await expect(page.locator('tr[data-month="2"]')).toContainText('R$ 250,00');
   await expect(page.locator('tr[data-month="13"]')).toContainText('R$ 265,00');
   await expect(page.getByTestId('goal-banner')).toContainText(/Meta atingida no mês \d+ — \d+ anos? e \d+ m(ês|eses) de simulação\./);
@@ -62,8 +62,8 @@ test('exportação CSV brasileiro', async ({ page }) => {
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export-csv').click()]);
   const text = readFileSync((await dl.path())!, 'utf8');
   expect(text.charCodeAt(0)).toBe(0xfeff);
-  expect(text).toContain('Ano;Mês;Cotas iniciais');
-  expect(text).toContain('1;1;178;0,00;8,89;0,10;17,80;0,00;2;180;0,02;1.600,20;1.600,22');
+  expect(text).toContain('Ano;Mês;Data-com;Pagamento/compra;Cotas iniciais');
+  expect(text).toMatch(/\r\n1;1;\d{2}\/\d{2}\/\d{4};\d{2}\/\d{2}\/\d{4};178;0,00;8,89;0,10;17,80;0,00;0,00;0,00;2;0,00;180;0,02;1\.600,20;1\.600,22;/);
   expect(text.split('\r\n').filter((l) => /^\d+;\d+;/.test(l))).toHaveLength(360);
 });
 
@@ -71,7 +71,8 @@ test('modo de mercado sem integração: modo manual funcional', async ({ page })
   await page.getByRole('button', { name: 'Dados de mercado' }).click();
   const panel = page.getByTestId('market-panel');
   await expect(panel).toContainText('Modo manual — sem atualização automática');
-  await expect(panel).toContainText('Nenhum dado de mercado configurado');
+  await expect(panel).toContainText('Nenhum dado de mercado disponível');
+  await panel.getByRole('button', { name: 'Inserir manualmente' }).click();
   await panel.getByLabel('Último preço (R$)').fill('9,50');
   await panel.getByLabel('Data/hora do negócio').fill('2026-11-06T17:00');
   await panel.getByLabel('Fonte da cotação').fill('Fonte de teste');
@@ -98,4 +99,30 @@ test('persistência local das configurações', async ({ page }) => {
   await expect(page.getByTestId('magic-shares')).toHaveText('267');
   await page.reload();
   await expect(page.getByTestId('magic-shares')).toHaveText('267');
+});
+
+test('premissas avançadas: IR, custos e datas reais', async ({ page }) => {
+  await page.getByTestId('advanced').locator('summary').click();
+  await page.getByTestId('in-startMonth').fill('2026-11');
+  await page.getByRole('button', { name: 'Todas' }).click();
+  await expect(page.locator('tr[data-month="1"]')).toContainText('30/10/2026');
+  await expect(page.locator('tr[data-month="1"]')).toContainText('16/11/2026');
+  await setField(page, 'in-dividendTaxPct', '15');
+  await expect(page.getByTestId('magic-shares')).toHaveText('210');
+  await expect(page.locator('[data-testid=sim-table] thead')).toContainText('IR retido');
+  await setField(page, 'in-dividendTaxPct', '0');
+  await setField(page, 'in-costFixed', '1,00');
+  await expect(page.getByTestId('magic-shares')).toHaveText('188');
+  await expect(page.locator('[data-testid=sim-table] thead')).toContainText('Custos');
+  await setField(page, 'in-costPct', '150');
+  await expect(page.getByText('Informe um percentual entre 0% e 99,99%.')).toBeVisible();
+});
+
+test('seletor de ativos: outros FIIs só com dados de mercado', async ({ page }) => {
+  await page.getByTestId('ticker').selectOption('HGLG11');
+  await expect(page.getByRole('button', { name: 'Demonstração' })).toBeDisabled();
+  await expect(page.getByTestId('market-panel')).toContainText('Dados de mercado · HGLG11');
+  await page.getByTestId('ticker').selectOption('MXRF11');
+  await page.getByRole('button', { name: 'Demonstração' }).click();
+  await expect(page.getByTestId('magic-shares')).toHaveText('178');
 });

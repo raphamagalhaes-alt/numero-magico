@@ -11,7 +11,7 @@ export function ExportBar({ result, includeReal, meta, fileBase }: { result: Sim
     try {
       const { toXlsx } = await import('../../export/excel');
       const buf = await toXlsx(result, includeReal, meta);
-      downloadBlob(buf, `${fileBase}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      downloadBlob(buf as BlobPart, `${fileBase}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     } catch (e) { setErr('Falha ao gerar Excel: ' + (e instanceof Error ? e.message : String(e))); }
     finally { setBusy(false); }
   };

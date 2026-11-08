@@ -4,18 +4,30 @@ import { fmtBRL, fmtBRLPrecise, fmtInt } from '../format';
 
 interface Col { key: string; label: string; cell: (r: MonthRow) => string; essential?: boolean }
 
-function columns(showReal: boolean, showContrib: boolean): Col[] {
+const br = (iso: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '—');
+
+function columns(r: SimulationResult, showReal: boolean, showContrib: boolean): Col[] {
+  const s = r.summary;
+  const dated = r.rows[0]?.paymentDate !== null;
   const c: Col[] = [
+    ...(dated ? [
+      { key: 'recordDate', label: 'Data-com', cell: (x: MonthRow) => br(x.recordDate) },
+      { key: 'paymentDate', label: 'Pagamento/compra', cell: (x: MonthRow) => br(x.paymentDate) },
+    ] : []),
     { key: 'sharesStart', label: 'Cotas iniciais', cell: (r) => fmtInt(r.sharesStart), essential: true },
     ...(showContrib ? [{ key: 'contribution', label: 'Aporte', cell: (r: MonthRow) => fmtBRL(r.contribution) }] : []),
     { key: 'price', label: 'Preço', cell: (r) => fmtBRLPrecise(r.price) },
     { key: 'dps', label: 'Dividendo/cota', cell: (r) => fmtBRLPrecise(r.dividendPerShare) },
     { key: 'income', label: 'Rendimento', cell: (r) => fmtBRL(r.income), essential: true },
+    ...(s.totalDividendTax.gt(0) ? [{ key: 'tax', label: 'IR retido', cell: (x: MonthRow) => fmtBRL(x.dividendTax) }] : []),
+    ...(s.totalCashInterest.gt(0) ? [{ key: 'interest', label: 'Juros do caixa', cell: (x: MonthRow) => fmtBRL(x.cashInterest) }] : []),
     { key: 'bought', label: 'Compradas', cell: (r) => fmtInt(r.sharesBought), essential: true },
+    ...(s.totalFees.gt(0) ? [{ key: 'fees', label: 'Custos', cell: (x: MonthRow) => fmtBRL(x.purchaseFees) }] : []),
     { key: 'sharesEnd', label: 'Cotas finais', cell: (r) => fmtInt(r.sharesEnd), essential: true },
     { key: 'cash', label: 'Saldo residual', cell: (r) => fmtBRLPrecise(r.cashEnd) },
     { key: 'value', label: 'Valor das cotas', cell: (r) => fmtBRL(r.sharesValue) },
     { key: 'equity', label: 'Patrimônio total', cell: (r) => fmtBRL(r.totalEquity), essential: true },
+    ...(s.finalLiquidationCosts.gt(0) || s.totalFees.gt(0) ? [{ key: 'netLiq', label: 'Líquido se vendido', cell: (x: MonthRow) => fmtBRL(x.netLiquidationEquity) }] : []),
   ];
   if (showReal) {
     c.push({ key: 'realIncome', label: 'Renda real', cell: (r) => fmtBRL(r.realIncome) });
@@ -26,7 +38,7 @@ function columns(showReal: boolean, showContrib: boolean): Col[] {
 
 function DataTableImpl({ result, showReal, showContrib }: { result: SimulationResult; showReal: boolean; showContrib: boolean }) {
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
-  const cols = columns(showReal, showContrib).filter((c) => !compact || c.essential);
+  const cols = columns(result, showReal, showContrib).filter((c) => !compact || c.essential);
   return (
     <section aria-label="Tabela detalhada" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">

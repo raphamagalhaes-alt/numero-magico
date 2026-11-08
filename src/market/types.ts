@@ -11,6 +11,10 @@ export interface SourcedValue<T> {
 export interface LastTrade {
   price: string; // decimal em string, precisão da origem
   tradedAt: string; // ISO 8601 do negócio/fechamento
+  /** Data do pregão (AAAA-MM-DD) a que o preço se refere, quando conhecido. */
+  sessionDate?: string;
+  /** 'fechamento' = preço de fechamento oficial do pregão; 'negocio' = último negócio informado. */
+  kind?: 'fechamento' | 'negocio';
   source: string;
   sourceUrl?: string;
 }
@@ -23,6 +27,10 @@ export interface DividendEvent {
   paymentDate: string;
   /** Data do anúncio/aviso aos cotistas, se conhecida. */
   announcedAt?: string;
+  /** Rendimento isento de IR para pessoa física, conforme o aviso oficial. */
+  taxExempt?: boolean;
+  /** Mês de referência informado no aviso (ex.: "Outubro-2026"). */
+  referencePeriod?: string;
   source: string;
   sourceUrl?: string;
 }
@@ -37,6 +45,10 @@ export interface MarketSnapshot {
   lastAnnouncedDividend: DividendEvent | null;
   /** Horário da última consulta bem-sucedida ao provedor. */
   fetchedAt: string;
+  /** Prazo observado (dias úteis) entre data-com e pagamento no aviso mais recente. */
+  paymentLagBusinessDays?: number;
+  /** Administrador informado no documento oficial. */
+  administrator?: string;
 }
 
 export interface MarketStatus {

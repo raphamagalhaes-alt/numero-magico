@@ -45,6 +45,22 @@ export function validateInput(input: SimulationInput): ValidationIssue[] {
   const o = input.initialSharesOverride;
   if (o !== undefined && o !== null && (!Number.isInteger(o) || o < 0))
     add('initialSharesOverride', 'As cotas iniciais devem ser um inteiro não negativo.');
+  const optionalFrac: (keyof SimulationInput)[] = ['tradingCostPct', 'dividendTaxRate', 'capitalGainsTaxRate'];
+  for (const f of optionalFrac) {
+    const v = input[f];
+    if (v === undefined || v === null) continue;
+    if (!isFiniteNumeric(v)) { add(f, 'Informe um número válido e finito.'); continue; }
+    const d = dec(v as string);
+    if (d.lt(0) || d.gte(1)) add(f, 'Informe um percentual entre 0% e 99,99%.');
+  }
+  if (input.tradingCostFixed !== undefined && (!isFiniteNumeric(input.tradingCostFixed) || dec(input.tradingCostFixed).lt(0)))
+    add('tradingCostFixed', 'O custo fixo não pode ser negativo.');
+  if (input.cashYieldAnnual !== undefined && (!isFiniteNumeric(input.cashYieldAnnual) || dec(input.cashYieldAnnual).lte(-1)))
+    add('cashYieldAnnual', 'A remuneração do caixa deve ser maior que −100%.');
+  if (input.paymentLagBusinessDays !== undefined && (!Number.isInteger(input.paymentLagBusinessDays) || input.paymentLagBusinessDays < 0 || input.paymentLagBusinessDays > 40))
+    add('paymentLagBusinessDays', 'O prazo de pagamento deve ser um inteiro entre 0 e 40 dias úteis.');
+  if (input.startMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(input.startMonth))
+    add('startMonth', 'Mês inicial inválido (use AAAA-MM).');
   if (input.incomeGoalBasis !== 'nominal' && input.incomeGoalBasis !== 'real')
     add('incomeGoalBasis', 'Base da meta inválida.');
   return issues;

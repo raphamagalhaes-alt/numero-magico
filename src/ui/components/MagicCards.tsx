@@ -29,7 +29,7 @@ export function MagicCards({ magic, desired }: { magic: MagicNumberResult | null
       <div className="card relative overflow-hidden p-6">
         <div className="label flex items-center gap-2"><Wallet size={14} className="text-gold-400" aria-hidden />Investimento inicial necessário</div>
         <div data-testid="magic-investment" className="num mt-2 text-5xl font-semibold text-mist-100">{fmtBRL(magic.initialInvestment)}</div>
-        <p className="mt-2 text-xs text-mist-400">{fmtInt(magic.shares)} cotas × preço da cota.</p>
+        <p className="mt-2 text-xs text-mist-400">{fmtInt(magic.shares)} cotas × preço da cota{magic.initialFees.gt(0) ? ` + ${fmtBRL(magic.initialFees)} de custos` : ''}.</p>
       </div>
       <p className="text-sm text-mist-400 md:col-span-2">
         Este número representa o capital inicial estimado para comprar determinada quantidade de cotas com o rendimento de um mês, considerando preço e dividendo constantes.

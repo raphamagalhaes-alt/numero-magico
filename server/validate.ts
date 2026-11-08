@@ -19,6 +19,7 @@ export function validateSnapshot(s: MarketSnapshot): string[] {
     if (!DEC.test(String(s.lastTrade.price)) || Number(s.lastTrade.price) <= 0) errs.push('preço inválido');
     if (!isDate(s.lastTrade.tradedAt)) errs.push('horário do negócio inválido');
     if (!s.lastTrade.source) errs.push('fonte da cotação ausente');
+    if (s.lastTrade.sessionDate && !/^\d{4}-\d{2}-\d{2}$/.test(s.lastTrade.sessionDate)) errs.push('data do pregão inválida');
   }
   checkDividend(s.lastPaidDividend ?? null, 'rendimento pago', errs);
   checkDividend(s.lastAnnouncedDividend ?? null, 'rendimento anunciado', errs);

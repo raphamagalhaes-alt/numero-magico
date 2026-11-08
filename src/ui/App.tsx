@@ -1,13 +1,14 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart3, RotateCcw, ShieldAlert } from 'lucide-react';
 import { simulate, type SimulationResult } from '../engine';
-import { ASSETS, DEFAULT_TICKER } from '../assets/registry';
-import { demoParams, inputForTab, type MainTab } from '../scenarios/defaults';
+import { ASSETS, DEFAULT_TICKER, formatCnpj, officialSources } from '../assets/registry';
+import { advancedDefaults, demoParams, inputForTab, type MainTab } from '../scenarios/defaults';
 import { marketApi, MarketApiError } from '../market/client';
 import { defaultDividend, type MarketSnapshot, type MarketStatus } from '../market/types';
 import { formFromParams, paramsFromForm, toBR, type FormField, type FormState } from './form';
 import { load, loadRaw, save } from './storage';
 import { Field } from './components/Field';
+import { AdvancedParams } from './components/AdvancedParams';
 import { MagicCards } from './components/MagicCards';
 import { ExecutiveSummary, GoalBanner } from './components/Summary';
 import { ChartsPanel, type ChartKey } from './components/Charts';
@@ -20,17 +21,16 @@ import { DISCLAIMER, LIMITATIONS, TAB_LABEL, reportMeta } from './report';
 
 type Mode = 'demo' | 'market';
 type Status = 'demo' | 'market' | 'custom';
-interface Prefs { mode: Mode; status: Status; tab: MainTab; marketLabel: string }
+interface Prefs { mode: Mode; status: Status; tab: MainTab; marketLabel: string; ticker: string }
 
-const TICKER = DEFAULT_TICKER;
-const DEFAULT_PREFS: Prefs = { mode: 'demo', status: 'demo', tab: 'nominal', marketLabel: '' };
+const DEFAULT_PREFS: Prefs = { mode: 'demo', status: 'demo', tab: 'nominal', marketLabel: '', ticker: DEFAULT_TICKER };
 const TABS: { id: MainTab; label: string; charts: ChartKey[] }[] = [
   { id: 'nominal', label: 'Nominal', charts: ['equity', 'shares', 'income', 'cumDividends', 'incomeVsGoal'] },
   { id: 'inflacao', label: 'Inflação', charts: ['nominalVsReal', 'income', 'equity', 'shares', 'cumDividends', 'incomeVsGoal'] },
   { id: 'aportes', label: 'Aportes mensais', charts: ['investedVsEquity', 'nominalVsReal', 'shares', 'income', 'cumDividends', 'incomeVsGoal'] },
 ];
 
-const HELP: Record<FormField, string> = {
+const HELP: Partial<Record<FormField, string>> = {
   price: 'Preço de uma cota em reais. No modo de mercado, o último preço negociado.',
   dividend: 'Rendimento mensal distribuído por cota. Aceita 3 ou mais casas decimais (ex.: 0,095).',
   desiredShares: 'Quantas cotas você quer comprar por mês somente com os dividendos. Define o número mágico.',
@@ -40,10 +40,15 @@ const HELP: Record<FormField, string> = {
 };
 
 export function App() {
-  const [prefs, setPrefs] = useState<Prefs>(() => load('mxrf:prefs', DEFAULT_PREFS));
+  const [prefs, setPrefs] = useState<Prefs>(() => {
+    const p = load('mxrf:prefs', DEFAULT_PREFS);
+    return ASSETS[p.ticker] ? p : { ...p, ticker: DEFAULT_TICKER };
+  });
+  const TICKER = prefs.ticker;
+  const hasDemo = Boolean(ASSETS[TICKER].demo);
   const [form, setForm] = useState<FormState>(() => load('mxrf:form', formFromParams(demoParams(TICKER))));
   const [market, setMarket] = useState<MarketStatus | null>(null);
-  const [localSnap, setLocalSnap] = useState<MarketSnapshot | null>(() => loadRaw('mxrf:manualSnapshot', null));
+  const [localSnap, setLocalSnap] = useState<MarketSnapshot | null>(() => loadRaw(`mxrf:manualSnapshot:${load('mxrf:prefs', DEFAULT_PREFS).ticker}`, null));
   const [mLoading, setMLoading] = useState(false);
   const [mError, setMError] = useState<string | null>(null);
 
@@ -52,7 +57,7 @@ export function App() {
   statusRef.current = prefs.status;
   useEffect(() => save('mxrf:form', form), [form]);
 
-  const { params, errors } = useMemo(() => paramsFromForm(form, TICKER), [form]);
+  const { params, errors } = useMemo(() => paramsFromForm(form, TICKER), [form, TICKER]);
   const deferredParams = useDeferredValue(params);
 
   const results = useMemo(() => {
@@ -63,7 +68,7 @@ export function App() {
   }, [deferredParams]);
   const tabResult = results?.[prefs.tab] ?? null;
 
-  const statusLabel = prefs.status === 'custom' ? 'Cenário personalizado' : prefs.status === 'market' ? `Dados de mercado · ${prefs.marketLabel}` : 'Dados do exemplo original (vídeo)';
+  const statusLabel = prefs.status === 'custom' ? 'Cenário personalizado' : prefs.status === 'market' ? `Dados de mercado · ${prefs.marketLabel}` : hasDemo ? 'Dados do exemplo original (vídeo)' : 'Aguardando dados de mercado';
 
   const edit = (k: keyof FormState) => (v: string) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -73,8 +78,19 @@ export function App() {
   const applySnapshot = useCallback((s: MarketSnapshot) => {
     const div = defaultDividend(s);
     if (!s.lastTrade || !div) return;
-    setForm((f) => ({ ...f, price: toBR(s.lastTrade!.price), dividend: toBR(div.event.amountPerShare) }));
-    const label = `${s.provider} · preço de ${new Date(s.lastTrade.tradedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} · rendimento ${div.kind}`;
+    const pay = div.event.paymentDate.slice(0, 7);
+    setForm((f) => ({
+      ...f,
+      price: toBR(s.lastTrade!.price),
+      dividend: toBR(div.event.amountPerShare),
+      // o 1º pagamento simulado é o do rendimento usado; prazo = observado no aviso oficial
+      startMonth: /^\d{4}-\d{2}$/.test(pay) ? pay : f.startMonth,
+      paymentLag: s.paymentLagBusinessDays !== undefined ? String(s.paymentLagBusinessDays) : f.paymentLag,
+      dividendTaxPct: div.event.taxExempt === true ? '0' : f.dividendTaxPct,
+    }));
+    const session = s.lastTrade.sessionDate ?? s.lastTrade.tradedAt.slice(0, 10);
+    const [y, m, d] = session.split('-');
+    const label = `${s.ticker} · ${s.lastTrade.kind === 'fechamento' ? 'fechamento' : 'preço'} de ${d}/${m}/${y} · rendimento ${div.kind}`;
     setPrefs((p) => ({ ...p, status: 'market', mode: 'market', marketLabel: label }));
   }, []);
 
@@ -101,9 +117,10 @@ export function App() {
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs.mode]);
+  }, [prefs.mode, prefs.ticker]);
 
   const setMode = (m: Mode) => {
+    if (m === 'demo' && !hasDemo) return;
     if (m === 'demo') {
       setForm((f) => ({ ...formFromParams(demoParams(TICKER)), contribution: f.contribution, incomeGoal: f.incomeGoal, incomeGoalBasis: f.incomeGoalBasis, inflationPct: f.inflationPct }));
       setPrefs((p) => ({ ...p, mode: 'demo', status: 'demo' }));
@@ -113,8 +130,17 @@ export function App() {
   };
 
   const restore = () => {
-    setForm(formFromParams(demoParams(TICKER)));
+    setForm(formFromParams(demoParams(DEFAULT_TICKER)));
     setPrefs({ ...DEFAULT_PREFS, tab: prefs.tab });
+  };
+
+  const setTicker = (t: string) => {
+    if (t === TICKER || !ASSETS[t]) return;
+    const demo = Boolean(ASSETS[t].demo);
+    setMarket(null);
+    setLocalSnap(loadRaw(`mxrf:manualSnapshot:${t}`, null));
+    setForm((f) => (demo ? { ...formFromParams(demoParams(t)), contribution: f.contribution, incomeGoal: f.incomeGoal, incomeGoalBasis: f.incomeGoalBasis } : { ...f, ...formFromParams({ ...demoParams(t), ...advancedDefaults(t), monthlyContribution: '250', incomeGoal: '1000' }), contribution: f.contribution, incomeGoal: f.incomeGoal, incomeGoalBasis: f.incomeGoalBasis }));
+    setPrefs((p) => ({ ...p, ticker: t, mode: demo ? p.mode : 'market', status: 'demo', marketLabel: '' }));
   };
 
   const showReal = prefs.tab !== 'nominal';
@@ -129,8 +155,8 @@ export function App() {
         <div className="flex items-center gap-3">
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-gold-400 to-gold-600 text-ink-950" aria-hidden><BarChart3 size={18} /></div>
           <div>
-            <h1 className="text-base font-semibold tracking-tight sm:text-lg">{asset.ticker} <span className="text-gold-400">·</span> O Número Mágico</h1>
-            <p className="text-[11px] text-mist-500">{asset.name} · Financial Intelligence Simulator 2.0</p>
+            <h1 className="text-base font-semibold tracking-tight sm:text-lg">MXRF11 <span className="text-gold-400">·</span> O Número Mágico</h1>
+            <p className="text-[11px] text-mist-500">{asset.name} · CNPJ {formatCnpj(asset.cnpj)} · Financial Intelligence Simulator 2.0</p>
           </div>
         </div>
         <nav aria-label="Seções" className="hidden gap-4 text-xs text-mist-400 lg:flex">
@@ -139,8 +165,12 @@ export function App() {
           <a className="hover:text-gold-300" href="#estrategias">Estratégias</a>
         </nav>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="sr-only" htmlFor="ticker">Ativo</label>
+          <select id="ticker" data-testid="ticker" className="input !w-auto !py-1.5 text-xs" value={TICKER} onChange={(e) => setTicker(e.target.value)}>
+            {Object.values(ASSETS).map((a) => <option key={a.ticker} value={a.ticker}>{a.ticker} — {a.name}</option>)}
+          </select>
           <div className="seg" role="group" aria-label="Origem dos dados">
-            <button type="button" aria-pressed={prefs.mode === 'demo'} onClick={() => setMode('demo')}>Demonstração</button>
+            <button type="button" aria-pressed={prefs.mode === 'demo'} disabled={!hasDemo} title={hasDemo ? undefined : 'O exemplo do vídeo existe apenas para o MXRF11'} onClick={() => setMode('demo')} className="disabled:opacity-40">Demonstração</button>
             <button type="button" aria-pressed={prefs.mode === 'market'} onClick={() => setMode('market')}>Dados de mercado</button>
           </div>
           <span data-testid="status-badge" className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${prefs.status === 'custom' ? 'bg-gold-500/10 text-gold-300 ring-gold-500/30' : prefs.status === 'market' ? 'bg-gain-500/10 text-gain-400 ring-gain-500/30' : 'bg-ink-800 text-mist-300 ring-white/10'}`}>
@@ -151,17 +181,17 @@ export function App() {
       </header>
 
       <main id="conteudo" className="flex flex-col gap-6">
-        {prefs.mode === 'demo' && (
+        {prefs.mode === 'demo' && hasDemo && (
           <p className="no-print rounded-lg bg-ink-850 p-3 text-xs text-mist-400 ring-1 ring-white/5">
             Modo Demonstração: valores do exemplo didático original (preço R$ 8,89, dividendo R$ 0,10). <strong className="text-mist-200">Não são cotações reais.</strong>
           </p>
         )}
         {prefs.mode === 'market' && (
           <div className="no-print">
-            <MarketPanel status={market} localSnapshot={localSnap} loading={mLoading} error={mError} isCustom={prefs.status === 'custom'}
+            <MarketPanel key={TICKER} ticker={TICKER} status={market} localSnapshot={localSnap} loading={mLoading} error={mError} isCustom={prefs.status === 'custom'}
               onRefresh={() => loadMarket(true).then((st) => { if (st?.snapshot && prefs.status === 'market') applySnapshot(st.snapshot); })}
               onApply={applySnapshot}
-              onSaveLocal={(s) => { setLocalSnap(s); save('mxrf:manualSnapshot', s); applySnapshot(s); }} />
+              onSaveLocal={(s) => { setLocalSnap(s); save(`mxrf:manualSnapshot:${TICKER}`, s); applySnapshot(s); }} />
           </div>
         )}
 
@@ -181,6 +211,8 @@ export function App() {
           </div>
           <p className="col-span-full text-[11px] text-mist-500">Prazo fixo de 360 meses. Os cálculos são refeitos imediatamente a cada alteração.</p>
         </section>
+
+        <AdvancedParams form={form} errors={errors} edit={edit} />
 
         {!params && (
           <div role="alert" className="card flex items-center gap-2 p-4 text-sm text-loss-400"><ShieldAlert size={16} aria-hidden />Corrija os parâmetros destacados para recalcular a simulação.</div>
@@ -206,7 +238,7 @@ export function App() {
                     className="!px-4 !py-2 !text-sm">{t.label}</button>
                 ))}
               </div>
-              <ExportBar result={tabResult} includeReal={showReal} fileBase={`mxrf11-${prefs.tab}-360m`} meta={reportMeta(tabResult, prefs.tab, statusLabel, TICKER)} />
+              <ExportBar result={tabResult} includeReal={showReal} fileBase={`${TICKER.toLowerCase()}-${prefs.tab}-360m`} meta={reportMeta(tabResult, prefs.tab, statusLabel, TICKER)} />
             </div>
 
             <div className="print-only text-xs">
@@ -236,10 +268,10 @@ export function App() {
       <footer className="mt-auto flex flex-col gap-3 border-t border-white/5 pt-6 text-xs text-mist-500">
         <p data-testid="disclaimer" className="text-mist-400">{DISCLAIMER}</p>
         <details className="no-print">
-          <summary className="cursor-pointer text-mist-400 hover:text-gold-300">Simplificações e limitações do modelo</summary>
+          <summary className="cursor-pointer text-mist-400 hover:text-gold-300">Premissas do modelo</summary>
           <ul className="mt-2 list-disc space-y-1 pl-5">{LIMITATIONS.map((l) => <li key={l}>{l}</li>)}</ul>
         </details>
-        <p>Aba atual: {TAB_LABEL[prefs.tab]} · Fontes oficiais para conferência: {asset.officialSources.map((s, i) => <span key={s.url}>{i > 0 && ' · '}<a className="underline hover:text-gold-300" href={s.url} target="_blank" rel="noreferrer noopener">{s.label}</a></span>)}</p>
+        <p>Aba atual: {TAB_LABEL[prefs.tab]} · Fontes oficiais para conferência: {officialSources(asset).map((s, i) => <span key={s.url}>{i > 0 && ' · '}<a className="underline hover:text-gold-300" href={s.url} target="_blank" rel="noreferrer noopener">{s.label}</a></span>)}</p>
       </footer>
     </div>
   );

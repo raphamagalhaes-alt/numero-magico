@@ -4,13 +4,13 @@ import { fmtBRL, fmtBRLPrecise, fmtInt, fmtPct } from './format';
 export const DISCLAIMER =
   'Simulação educativa. Fundos imobiliários são investimentos de renda variável. Preços, distribuições de rendimentos, inflação, liquidez e condições tributárias podem mudar. Resultados projetados não representam garantia de rentabilidade ou renda futura. Não constitui recomendação de investimento.';
 
+/** Premissas do modelo (o que é hipótese, e não dado observado). */
 export const LIMITATIONS = [
-  'Preço e dividendo constantes nas abas principais (variações apenas no Laboratório de Cenários).',
-  'Datas de elegibilidade (data-com), prazos de pagamento e liquidação simplificados em períodos mensais.',
-  'Cotas compradas no mês só rendem a partir do mês seguinte.',
-  'Sem custos de corretagem, emolumentos, spread ou impacto de liquidez.',
-  'Sem tributação (rendimentos de FII podem ter isenção condicionada para pessoa física; ganho de capital é tributado).',
-  'Compras apenas de cotas inteiras ao preço do mês; o saldo residual fica em caixa sem remuneração.',
+  'Preço e dividendo constantes nas abas principais; variações somente no Laboratório de Cenários. Valores futuros são hipóteses, não previsões.',
+  'Datas: data-com no último dia útil do mês e pagamento N dias úteis depois (calendário B3), padrão observado nos avisos oficiais; o fundo pode alterar o cronograma.',
+  'Compras de cotas inteiras ao preço do mês, na data de pagamento, sem spread nem impacto de liquidez.',
+  'Custos, alíquotas de IR e remuneração do caixa são os informados nas premissas avançadas; confira as tabelas vigentes da sua corretora, da B3 e a legislação.',
+  'O patrimônio líquido se vendido considera IR sobre ganho de capital apenas na venda total hipotética do mês.',
 ];
 
 export const TAB_LABEL = { nominal: 'Nominal', inflacao: 'Inflação', aportes: 'Aportes mensais' } as const;
@@ -25,6 +25,7 @@ export function reportMeta(r: SimulationResult, tab: keyof typeof TAB_LABEL, sta
     `Número mágico: ${fmtInt(r.magic.shares)} cotas · Investimento inicial: ${fmtBRL(r.summary.initialInvestment)}`,
     `Inflação anual: ${fmtPct(i.inflationAnnual)} · Aporte mensal base: ${fmtBRL(i.monthlyContribution)} (a partir do mês ${i.contributionStartMonth}, reajuste anual)`,
     `Meta de renda: ${fmtBRL(i.incomeGoal)} (${i.incomeGoalBasis}) · Prazo: ${i.months} meses`,
+    `Datas: 1º pagamento em ${i.startMonth ?? '—'}, ${i.paymentLagBusinessDays ?? 10} dias úteis após a data-com · Custos: ${fmtPct(i.tradingCostPct ?? 0)} + ${fmtBRL(i.tradingCostFixed ?? 0)}/ordem · IR rendimentos: ${fmtPct(i.dividendTaxRate ?? 0)} · IR ganho de capital: ${fmtPct(i.capitalGainsTaxRate ?? 0)} · Caixa: ${fmtPct(i.cashYieldAnnual ?? 0)} a.a.`,
     `Limitações: ${LIMITATIONS.join(' ')}`,
     DISCLAIMER,
   ];

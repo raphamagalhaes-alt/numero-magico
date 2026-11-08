@@ -1,5 +1,5 @@
 import type { MarketStatus } from '../src/market/types';
-import { isStale } from './calendar';
+import { isStale, saoPauloDate } from './calendar';
 import type { MarketDataProvider } from './providers/types';
 import type { JsonStore } from './store';
 import { validateSnapshot } from './validate';
@@ -10,12 +10,14 @@ export class MarketService {
 
   status(ticker: string): MarketStatus {
     const s = this.store.get(ticker);
+    const t = s.snapshot?.lastTrade;
+    const session = t ? (t.sessionDate ?? saoPauloDate(new Date(t.tradedAt))) : null;
     return {
       ticker,
       snapshot: s.snapshot,
       lastAttemptAt: s.lastAttemptAt,
       lastError: s.lastError,
-      stale: isStale(s.snapshot?.lastTrade?.tradedAt ?? null, s.snapshot?.fetchedAt ?? null, this.now()),
+      stale: isStale(session, s.snapshot?.fetchedAt ?? null, this.now()),
       providerConfigured: this.provider.isConfigured(),
       providerName: this.provider.name,
       automaticUpdates: this.provider.automatic && this.provider.isConfigured(),
@@ -33,7 +35,8 @@ export class MarketService {
       if (errs.length) throw new Error(`Dados rejeitados: ${errs.join(', ')}`);
       this.store.set(ticker, { snapshot: snap, lastAttemptAt: attempt, lastError: null });
     } catch (e) {
-      this.store.set(ticker, { snapshot: prev.snapshot, lastAttemptAt: attempt, lastError: e instanceof Error ? e.message : String(e) });
+      const msg = e instanceof Error ? (e.name === 'AbortError' ? 'tempo de resposta esgotado' : e.message) : String(e);
+      this.store.set(ticker, { snapshot: prev.snapshot, lastAttemptAt: attempt, lastError: msg });
     }
     return this.status(ticker);
   }
