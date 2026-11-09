@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getCompareList } from './pages/Explorer';
 import { loadRaw as loadRawPref } from './storage';
-import { BarChart3, Bell, Calculator, GitCompare, Landmark, Wallet, RefreshCw, LineChart, Sunrise, CalendarCheck, Menu, Scale, BookOpen, Table2, type LucideIcon } from 'lucide-react';
+import { BarChart3, Bell, Calculator, GitCompare, Landmark, Wallet, RefreshCw, LineChart, Sunrise, CalendarCheck, Menu, Scale, BookOpen, Table2, CloudLightning, Baby, type LucideIcon } from 'lucide-react';
 import { SimulatorPage } from './App';
 import { ExplorerPage } from './pages/Explorer';
 import { ComparePage } from './pages/Compare';
@@ -11,6 +11,9 @@ import { DataStatusPage } from './pages/DataStatus';
 import { MarketsPage } from './pages/Markets';
 import { FreedomPage } from './pages/Freedom';
 import { MonthPage, paydayDue } from './pages/Month';
+import { StormPage } from './pages/Storm';
+import { currentStorm } from './storm-state';
+import { KidsPage } from './pages/Kids';
 import { JournalPage, dueReviews, loadJournal } from './pages/Journal';
 import { LegalPage } from './pages/Legal';
 import { TERMS_KEY, TERMS_VERSION } from './legal';
@@ -22,7 +25,7 @@ import { loadRaw } from './storage';
 import { IS_WEB } from './mode';
 import { InstallApp } from './components/InstallApp';
 
-const ICONS: Record<string, LucideIcon> = { mercados: LineChart, mes: CalendarCheck, liberdade: Sunrise, diario: BookOpen, explorar: Table2, simulador: Calculator, comparar: GitCompare, juros: Landmark, carteira: Wallet, dados: RefreshCw };
+const ICONS: Record<string, LucideIcon> = { mercados: LineChart, mes: CalendarCheck, liberdade: Sunrise, diario: BookOpen, explorar: Table2, tempestade: CloudLightning, filhos: Baby, simulador: Calculator, comparar: GitCompare, juros: Landmark, carteira: Wallet, dados: RefreshCw };
 
 const BOTTOM = ['mes', 'liberdade', 'mercados', 'carteira', 'simulador'];
 
@@ -93,6 +96,12 @@ export function Shell() {
         </div>
       )}
 
+      {route.page !== 'tempestade' && currentStorm().active && (
+        <button type="button" className="no-print card flex items-center gap-2 p-3 text-left text-xs text-loss-400 ring-loss-500/40" onClick={() => go('tempestade')} data-testid="storm-banner">
+          <CloudLightning size={14} aria-hidden />A bolsa está em queda forte. Antes de qualquer decisão, abra o Modo tempestade.
+        </button>
+      )}
+
       {route.page !== 'mes' && paydayDue() && (
         <button type="button" className="no-print card flex items-center gap-2 p-3 text-left text-xs text-gold-300 ring-gold-500/40" onClick={() => go('mes')} data-testid="payday-banner">
           <Bell size={14} aria-hidden />Seu salário caiu: o plano do mês está pronto — pague-se primeiro.
@@ -117,6 +126,8 @@ export function Shell() {
         {route.page === 'mes' && <MonthPage />}
         {route.page === 'liberdade' && <FreedomPage />}
         {route.page === 'diario' && <JournalPage />}
+        {route.page === 'tempestade' && <StormPage />}
+        {route.page === 'filhos' && <KidsPage />}
         {route.page === 'explorar' && <ExplorerPage />}
         {route.page === 'comparar' && <ComparePage tickersParam={route.params.get('t')} />}
         {route.page === 'juros' && <RatesPage />}

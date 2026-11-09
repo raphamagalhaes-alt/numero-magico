@@ -257,3 +257,41 @@ test('site: menu do celular com "Mais"', async ({ page }) => {
   await expect(page.getByTestId('journal')).toBeVisible();
   await expect(page.getByTestId('more-menu')).toHaveCount(0);
 });
+
+test('site: Modo tempestade (aviso, promessa, seus números) e metas dos filhos', async ({ page }) => {
+  // simula Ibovespa -3,2% hoje, guardado pela página Mercados neste aparelho
+  await page.addInitScript(() => {
+    const month = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
+    localStorage.setItem('mxrf:markets', JSON.stringify({ month, used: 1, q: { '^BVSP': { price: 120000, change: -3960, changePct: -0.032, time: null, name: 'Ibovespa', closes: [128000, 130000, 124000], histDay: null, fetchedAt: Date.now() } } }));
+    localStorage.setItem('mxrf:payday', JSON.stringify({ configured: true, salary: '5000', rule: { kind: 'dia', day: 28 }, pct: '10', raise: { on: false, step: 1, everyMonths: 6, max: 20, start: '2026-01-01' }, reserveMonths: '6', reserveHave: '25620', reserveShare: 1, history: [], lastSalary: '5000' }));
+  });
+  await page.goto('./#/mercados');
+  await page.getByTestId('storm-banner').click();
+  await expect(page.getByTestId('st-active')).toContainText('-3,2% hoje');
+  await expect(page.getByTestId('st-numbers')).toContainText('6 meses'); // 25.620 ÷ 4.270 de contas
+  await expect(page.getByTestId('st-history')).toContainText('2020');
+  await page.getByTestId('st-rule-input').fill('Não vou vender nada e vou manter meus aportes.');
+  await page.getByTestId('st-rule-save').click();
+  await expect(page.getByTestId('st-promise')).toContainText('Não vou vender nada');
+  // no Diário, tentar vender durante a tempestade mostra o lembrete
+  await page.goto('./#/diario');
+  await page.getByTestId('jr-action').selectOption('Vender');
+  await expect(page.getByTestId('jr-storm')).toBeVisible();
+
+  // Filhos
+  await page.goto('./#/filhos');
+  await page.getByTestId('kid-name').fill('Ana');
+  await page.getByTestId('kid-birth').fill('2018-03-10');
+  await page.getByTestId('kid-target').fill('100.000');
+  await page.getByTestId('kid-monthly').fill('300');
+  await page.getByTestId('kid-save').click();
+  const card = page.getByTestId('kid-card');
+  await expect(card).toContainText('Ana');
+  await expect(card).toContainText('Faculdade');
+  await expect(card.getByTestId('kid-projected')).toContainText('R$');
+  await expect(card.getByTestId('kid-reach')).toContainText('anos');
+  await card.getByTestId('kid-show').click();
+  await expect(card.getByTestId('kid-view')).toContainText('Ana, sua árvore do dinheiro');
+  await page.reload();
+  await expect(page.getByTestId('kid-card')).toContainText('Ana');
+});
