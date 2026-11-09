@@ -208,3 +208,52 @@ test('site: Carteira com calendário de renda e teste da renda fixa; Diário de 
   await expect(page.getByTestId('family')).toContainText('Código inválido');
   expect(ext.filter((h) => B3.test(h))).toEqual([]);
 });
+
+test('site: Meu mês (dia do salário) e Quanto custa em liberdade', async ({ page }) => {
+  await page.goto('./#/mes');
+  await page.getByTestId('mo-salary').fill('5.000');
+  await page.getByTestId('mo-rule').selectOption('d1'); // todo dia 1 → já caiu neste mês
+  await page.getByTestId('mo-reserve-have').fill('30.000'); // reserva completa (6 × R$ 4.270)
+  await page.getByTestId('mo-save-setup').click();
+  await expect(page.getByTestId('mo-due')).toContainText('Hora do plano do mês');
+  await expect(page.getByTestId('mo-save')).toHaveText('R$ 500,00');
+  await expect(page.getByTestId('mo-reserve')).toContainText('completa');
+  await expect(page.getByTestId('mo-invest')).toHaveText('R$ 500,00');
+  await expect(page.getByTestId('mo-gain')).toContainText('Adianta sua liberdade');
+  // aviso aparece nas outras páginas até o plano ser feito
+  await page.goto('./#/mercados');
+  await page.getByTestId('payday-banner').click();
+  await page.getByTestId('mo-markdone').click();
+  await expect(page.getByTestId('mo-done')).toContainText('R$ 500,00 guardados');
+  await expect(page.getByTestId('mo-streak')).toContainText('1 mês seguido');
+  await page.goto('./#/mercados');
+  await expect(page.getByTestId('payday-banner')).toHaveCount(0);
+  // aumento de salário → sugestão de guardar metade do aumento
+  await page.goto('./#/mes');
+  await page.getByRole('button', { name: 'Ajustar salário e regras' }).click();
+  await page.getByTestId('mo-salary').fill('6.000');
+  await page.getByTestId('mo-save-setup').click();
+  await expect(page.getByTestId('mo-raise')).toContainText('R$ 1.000,00');
+  await page.getByRole('button', { name: 'Sim, guardar metade' }).click();
+  await expect(page.getByTestId('mo-raise')).toHaveCount(0);
+
+  // Quanto custa em liberdade (com o plano padrão da Liberdade)
+  await page.goto('./#/liberdade');
+  const cost = page.getByTestId('cost-freedom');
+  await cost.getByTestId('cost-value').fill('3.000');
+  await expect(cost.getByTestId('cost-result')).toContainText('atrasa sua liberdade em');
+  const once = await cost.getByTestId('cost-result').locator('p').nth(1).textContent();
+  await cost.getByTestId('cost-monthly').click();
+  const monthly = await cost.getByTestId('cost-result').locator('p').nth(1).textContent();
+  expect(monthly).not.toEqual(once);
+  expect(monthly).toMatch(/ano|mais de 100/);
+});
+
+test('site: menu do celular com "Mais"', async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1280) >= 640, 'só no celular');
+  await page.goto('./#/mes');
+  await page.getByTestId('more-btn').click();
+  await page.getByTestId('more-menu').getByText('Diário').click();
+  await expect(page.getByTestId('journal')).toBeVisible();
+  await expect(page.getByTestId('more-menu')).toHaveCount(0);
+});

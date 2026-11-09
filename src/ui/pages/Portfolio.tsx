@@ -11,7 +11,7 @@ import { AlertChannels } from '../components/AlertChannels';
 import { FixedIncomeCheck, IncomeCalendar } from '../components/IncomeInsights';
 
 export interface Position { ticker: string; shares: number }
-const POS_KEY = 'mxrf:positions';
+export const POS_KEY = 'mxrf:positions';
 const SEEN_KEY = 'mxrf:seenDividends';
 
 export function loadPositions(): Position[] {
@@ -53,7 +53,7 @@ export function portfolioTotals(positions: Position[], assets: AssetMetrics[]) {
   return { value: Math.round(value * 100) / 100, income: Math.round(income * 100) / 100 };
 }
 
-const TARGET_KEY = 'mxrf:targets';
+export const TARGET_KEY = 'mxrf:targets';
 
 /** Aporte do mês: quantas cotas inteiras comprar de cada ativo para chegar perto da divisão que a pessoa escolheu. */
 function MonthlyContribution({ positions, assets }: { positions: Position[]; assets: AssetMetrics[] }) {

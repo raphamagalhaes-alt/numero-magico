@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getCompareList } from './pages/Explorer';
 import { loadRaw as loadRawPref } from './storage';
-import { BarChart3, Bell, Calculator, Search, GitCompare, Landmark, Wallet, RefreshCw, LineChart, Sunrise, type LucideIcon } from 'lucide-react';
+import { BarChart3, Bell, Calculator, GitCompare, Landmark, Wallet, RefreshCw, LineChart, Sunrise, CalendarCheck, Menu, Scale, BookOpen, Table2, type LucideIcon } from 'lucide-react';
 import { SimulatorPage } from './App';
 import { ExplorerPage } from './pages/Explorer';
 import { ComparePage } from './pages/Compare';
@@ -10,6 +10,7 @@ import { PortfolioPage, loadPositions, newDividendAlerts } from './pages/Portfol
 import { DataStatusPage } from './pages/DataStatus';
 import { MarketsPage } from './pages/Markets';
 import { FreedomPage } from './pages/Freedom';
+import { MonthPage, paydayDue } from './pages/Month';
 import { JournalPage, dueReviews, loadJournal } from './pages/Journal';
 import { LegalPage } from './pages/Legal';
 import { TERMS_KEY, TERMS_VERSION } from './legal';
@@ -21,13 +22,15 @@ import { loadRaw } from './storage';
 import { IS_WEB } from './mode';
 import { InstallApp } from './components/InstallApp';
 
-const ICONS: Record<string, LucideIcon> = { mercados: LineChart, liberdade: Sunrise, simulador: Calculator, explorar: Search, comparar: GitCompare, juros: Landmark, carteira: Wallet, dados: RefreshCw };
+const ICONS: Record<string, LucideIcon> = { mercados: LineChart, mes: CalendarCheck, liberdade: Sunrise, diario: BookOpen, explorar: Table2, simulador: Calculator, comparar: GitCompare, juros: Landmark, carteira: Wallet, dados: RefreshCw };
 
-const BOTTOM = ['mercados', 'liberdade', 'simulador', 'juros', 'carteira', 'dados'];
+const BOTTOM = ['mes', 'liberdade', 'mercados', 'carteira', 'simulador'];
 
 export function Shell() {
   const route = useRoute();
   const [simKey, setSimKey] = useState(0);
+  const [more, setMore] = useState(false);
+  useEffect(() => setMore(false), [route.page]);
   const forced = window.location.search.includes('onboarding=1');
   const [onboard, setOnboard] = useState(() => forced || (!window.navigator.webdriver && (!loadRaw(ONBOARD_KEY, false) || loadRaw<string>(TERMS_KEY, '') !== TERMS_VERSION)));
   // link compartilhado (?t=) ou quem já configurou: pede só o aceite, sem refazer as perguntas
@@ -70,17 +73,31 @@ export function Shell() {
       </header>
 
       <nav aria-label="Menu" data-testid="bottom-nav" className="no-print fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-white/10 bg-ink-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
-        {PAGES.filter((p) => BOTTOM.includes(p.id)).map((p) => {
+        {BOTTOM.map((id) => PAGES.find((p) => p.id === id)!).map((p) => {
           const Icon = ICONS[p.id] ?? Calculator;
           const on = route.page === p.id;
           return (
             <a key={p.id} href={`#/${p.id}`} aria-current={on ? 'page' : undefined} className={`relative flex flex-col items-center gap-0.5 py-2 text-[10px] ${on ? 'text-gold-300' : 'text-mist-400'}`}>
               <Icon size={20} aria-hidden />{p.label}
               {p.id === 'carteira' && alerts.length > 0 && <span className="absolute right-3 top-1.5 h-2 w-2 rounded-full bg-gold-400" aria-label="novos rendimentos" />}
+              {p.id === 'mes' && paydayDue() && <span className="absolute right-3 top-1.5 h-2 w-2 rounded-full bg-gold-400" aria-label="plano do mês pendente" />}
             </a>
           );
         })}
+        <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more} className={`flex flex-col items-center gap-0.5 py-2 text-[10px] ${more || !BOTTOM.includes(route.page) ? 'text-gold-300' : 'text-mist-400'}`} data-testid="more-btn"><Menu size={20} aria-hidden />Mais</button>
       </nav>
+      {more && (
+        <div className="no-print fixed inset-x-0 bottom-[60px] z-40 mx-3 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-ink-900 p-2 shadow-2xl sm:hidden" data-testid="more-menu" onClick={() => setMore(false)}>
+          {PAGES.filter((p) => !BOTTOM.includes(p.id)).map((p) => { const Icon = ICONS[p.id] ?? Scale; return <a key={p.id} href={`#/${p.id}`} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-mist-200 hover:bg-ink-800"><Icon size={16} aria-hidden className="text-gold-400" />{p.label}</a>; })}
+          <a href="#/termos" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-mist-200 hover:bg-ink-800"><Scale size={16} aria-hidden className="text-gold-400" />Termos</a>
+        </div>
+      )}
+
+      {route.page !== 'mes' && paydayDue() && (
+        <button type="button" className="no-print card flex items-center gap-2 p-3 text-left text-xs text-gold-300 ring-gold-500/40" onClick={() => go('mes')} data-testid="payday-banner">
+          <Bell size={14} aria-hidden />Seu salário caiu: o plano do mês está pronto — pague-se primeiro.
+        </button>
+      )}
 
       {route.page !== 'diario' && dueReviews(loadJournal()).length > 0 && (
         <button type="button" className="no-print card flex items-center gap-2 p-3 text-left text-xs text-gold-300 ring-gold-500/40" onClick={() => go('diario')} data-testid="journal-banner">
@@ -97,6 +114,7 @@ export function Shell() {
       <main id="conteudo" className="flex flex-col gap-6">
         {route.page === 'simulador' && <SimulatorPage key={simKey} requestedTicker={route.params.get('t')} />}
         {route.page === 'mercados' && <MarketsPage />}
+        {route.page === 'mes' && <MonthPage />}
         {route.page === 'liberdade' && <FreedomPage />}
         {route.page === 'diario' && <JournalPage />}
         {route.page === 'explorar' && <ExplorerPage />}

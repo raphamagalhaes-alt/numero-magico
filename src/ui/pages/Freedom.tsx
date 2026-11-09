@@ -1,23 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, CheckCircle2, Circle, Plus, Sunrise, Trash2 } from 'lucide-react';
-import { billTimeline, capitalForIncome, contributionFor, coverage, monthsToTarget, type Bill } from '../../engine/freedom';
-import { useMacro, useUniverse } from '../data';
+import { billTimeline, capitalForIncome, contributionFor, monthsToTarget, type Bill } from '../../engine/freedom';
 import { fmtBRL, fmtPct } from '../format';
 import { go } from '../route';
 import { loadRaw, save } from '../storage';
-import { loadPositions, portfolioTotals } from './Portfolio';
+import { FREEDOM_DEFAULT, FREEDOM_KEY, num, useFreedomPlan, type FreedomState } from '../freedom-plan';
 import { FamilyGoals } from '../components/FamilyGoals';
+import { CostInFreedom } from '../components/CostInFreedom';
 
-const KEY = 'mxrf:freedom';
-interface State { bills: Bill[]; extraIncome: string; extraCapital: string; contribution: string; rate: string; years: string }
-const DEFAULT: State = {
-  bills: [
-    { name: 'Celular', amount: 60 }, { name: 'Água', amount: 90 }, { name: 'Internet', amount: 120 }, { name: 'Luz', amount: 200 },
-    { name: 'Lazer', amount: 300 }, { name: 'Transporte', amount: 400 }, { name: 'Saúde', amount: 400 }, { name: 'Mercado', amount: 1200 }, { name: 'Moradia', amount: 1500 },
-  ],
-  extraIncome: '0', extraCapital: '0', contribution: '500', rate: '', years: '15',
-};
-const num = (s: string) => { const n = Number(String(s).replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+const KEY = FREEDOM_KEY;
+type State = FreedomState;
+const DEFAULT = FREEDOM_DEFAULT;
 const brl = (v: number) => fmtBRL(v.toFixed(2));
 const when = (months: number | null) => {
   if (months === null) return 'mais de 100 anos';
@@ -30,29 +23,14 @@ const when = (months: number | null) => {
 };
 
 export function FreedomPage() {
-  const u = useUniverse();
-  const macro = useMacro();
   const [s, setS] = useState<State>(() => ({ ...DEFAULT, ...loadRaw<Partial<State>>(KEY, {}) }));
   useEffect(() => save(KEY, s), [s]);
   const set = (k: keyof State) => (e: React.ChangeEvent<HTMLInputElement>) => setS((x) => ({ ...x, [k]: e.target.value }));
 
-  // taxa real "de mercado": Tesouro IPCA+ mais longo à venda hoje (o quanto o governo paga acima da inflação)
-  const ipcaPlus = useMemo(() => {
-    const b = (macro.data?.tesouro.bonds ?? []).filter((x) => /IPCA\+/.test(x.type) && !/Semestrais|Renda|Educa/i.test(x.type) && x.buyRate).sort((a, b) => b.maturity.localeCompare(a.maturity))[0];
-    return b?.buyRate ? { rate: b.buyRate > 1 ? b.buyRate / 100 : b.buyRate, label: `${b.type} ${b.maturity.slice(0, 4)}` } : null;
-  }, [macro.data]);
-  const rate = s.rate ? num(s.rate) / 100 : ipcaPlus?.rate ?? 0.06;
-
-  const pf = portfolioTotals(loadPositions(), u.data?.assets ?? []);
-  // Renda de hoje = carteira (renda estimada real) + outras rendas + outros investimentos rendendo a taxa escolhida.
-  // O plano conta só o capital NOVO necessário além do que já existe (que segue gerando a renda de hoje).
-  const otherCapitalIncome = Math.round((num(s.extraCapital) * rate / 12) * 100) / 100;
-  const income = pf.income + num(s.extraIncome) + otherCapitalIncome;
-  const capital = pf.value + num(s.extraCapital);
-  const contribution = num(s.contribution);
-  const cov = coverage(s.bills, income);
+  const plan = useFreedomPlan(s);
+  const { ipca: ipcaPlus, rate, pf, otherCapitalIncome, income, capital, contribution, cov } = plan;
   const timeline = billTimeline(s.bills, income, 0, contribution, rate);
-  const fullCapital = capitalForIncome(Math.max(0, cov.total - income), rate);
+  const fullCapital = plan.missingCapital;
   const fullMonths = fullCapital === null ? null : monthsToTarget(0, contribution, fullCapital, rate);
   const years = Math.max(1, Math.min(60, Math.round(num(s.years)) || 15));
   const needed = fullCapital === null ? null : contributionFor(0, fullCapital, years * 12, rate);
@@ -80,6 +58,8 @@ export function FreedomPage() {
         {!cov.next && cov.total > 0 && <p className="text-sm font-semibold text-gain-400">Todas as contas cobertas! Sobra {brl(cov.surplus)} por mês.</p>}
         {income === 0 && <p className="text-xs text-mist-500">Ainda sem renda passiva: adicione seus ativos em <button type="button" className="underline" onClick={() => go('carteira')}>Carteira</button> ou informe outras rendas abaixo.</p>}
       </div>
+
+      <CostInFreedom />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card flex flex-col gap-2 p-4" data-testid="fr-bills">

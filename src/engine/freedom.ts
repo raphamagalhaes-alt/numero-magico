@@ -92,3 +92,43 @@ export function planContribution(holdings: Holding[], cash: number) {
   const after = holdings.map((h) => ({ ticker: h.ticker, weight: total > 0 ? ((h.shares + (bought.get(h.ticker) ?? 0)) * Math.max(0, h.price)) / total : 0, target: tsum > 0 ? h.target / tsum : 0 }));
   return { buys, spent: cents(cash - left), leftover: cents(left), after };
 }
+
+/** Como `monthsToTarget`, mas com fração do último mês (para falar em dias). Aceita patrimônio negativo. */
+export function monthsToTargetFrac(current: number, contribution: number, target: number, realAnnual: number): number | null {
+  if (current >= target) return 0;
+  const r = monthlyRate(realAnnual);
+  let v = current;
+  for (let m = 1; m <= 1200; m++) {
+    const next = v * (1 + r) + contribution;
+    if (next >= target) return m - 1 + (target - v) / (next - v);
+    v = next;
+  }
+  return null;
+}
+
+export const DAYS_PER_MONTH = 365.25 / 12;
+
+/**
+ * Quanto um gasto ATRASA (ou um aporte extra ADIANTA, com valor negativo) a liberdade total, em dias.
+ * `oneOff`: valor único (gasto > 0; aporte extra < 0). `monthly`: gasto recorrente que sai do aporte mensal.
+ * null quando não há plano (meta, aporte) suficiente para calcular.
+ */
+export function freedomDelayDays(p: { capital: number; contribution: number; target: number; rate: number }, cost: { oneOff?: number; monthly?: number }): number | null {
+  if (!(p.target > 0) || p.capital >= p.target) return null;
+  const base = monthsToTargetFrac(p.capital, p.contribution, p.target, p.rate);
+  const after = monthsToTargetFrac(p.capital - (cost.oneOff ?? 0), p.contribution - (cost.monthly ?? 0), p.target, p.rate);
+  if (base === null) return null;
+  if (after === null) return Infinity;
+  return Math.round((after - base) * DAYS_PER_MONTH);
+}
+
+/** Texto curto para dias: "47 dias", "1 ano e 2 meses". */
+export function daysLabel(days: number): string {
+  const d = Math.abs(days);
+  if (!Number.isFinite(d)) return 'mais de 100 anos';
+  if (d < 60) return `${d} dia${d === 1 ? '' : 's'}`;
+  const months = Math.round(d / DAYS_PER_MONTH);
+  const y = Math.floor(months / 12), m = months % 12;
+  if (!y) return `${m} meses`;
+  return `${y} ano${y > 1 ? 's' : ''}${m ? ` e ${m} ${m > 1 ? 'meses' : 'mês'}` : ''}`;
+}
