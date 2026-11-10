@@ -65,6 +65,7 @@ test('carteira: progresso até o número mágico e alerta de novo rendimento', a
 
 test('onboarding em 3 perguntas personaliza a simulação', async ({ page }) => {
   await page.goto('/?onboarding=1#/simulador');
+  await page.getByTestId('ob-name').fill('Rapha');
   await page.getByTestId('ob-goal').fill('2.000');
   await page.getByTestId('ob-contrib').fill('500');
   await page.getByTestId('ob-go').click();
@@ -74,6 +75,7 @@ test('onboarding em 3 perguntas personaliza a simulação', async ({ page }) => 
   await expect(page.getByRole('tab', { name: 'Aportes mensais' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('in-goal')).toHaveValue('2.000');
   await expect(page.getByTestId('in-contribution')).toHaveValue('500');
+  await expect(page.getByTestId('profile-btn')).toContainText('R');
 });
 
 test('simulador: renda fixa, estresse, Monte Carlo, cenários salvos e marca no PDF', async ({ page }) => {

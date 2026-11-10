@@ -295,3 +295,44 @@ test('site: Modo tempestade (aviso, promessa, seus números) e metas dos filhos'
   await page.reload();
   await expect(page.getByTestId('kid-card')).toContainText('Ana');
 });
+
+test('site: Meu perfil — resumo, avatar no topo, perfil de investidor e cópia de segurança para outro aparelho', async ({ page, browser }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('mxrf:kids', JSON.stringify([{ name: 'Ana', birth: '2018-03-10', goal: 'Faculdade', target: 100000, atAge: 18, monthly: 300, have: 2000 }]));
+    localStorage.setItem('mxrf:stormRule', JSON.stringify('Não vendo no pânico.'));
+  });
+  await page.goto('./#/mercados');
+  await page.getByTestId('profile-btn').click();
+  await page.getByTestId('pr-name').fill('Rapha');
+  await expect(page.getByTestId('profile-btn')).toContainText('R');
+  await page.getByRole('button', { name: 'Avatar 🦊' }).click();
+  await expect(page.getByTestId('profile-btn')).toContainText('🦊');
+  const sum = page.getByTestId('pr-summary');
+  await expect(sum).toContainText('1 meta');
+  await expect(sum).toContainText('Escrita ✓');
+  await expect(sum).toContainText('Sem chave');
+  // perfil de investidor
+  await page.getByTestId('pr-quiz-start').click();
+  for (let i = 0; i < 5; i++) await page.getByTestId(`pr-q${i}-1`).check();
+  await page.getByTestId('pr-quiz-save').click();
+  await expect(page.getByTestId('pr-quiz-result')).toHaveText('Moderado');
+  // cópia de segurança → restaurar em outro "aparelho" (contexto limpo)
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('pr-download').click()]);
+  const path = await dl.path();
+  const content = readFileSync(path!, 'utf8');
+  expect(content).toContain('Ana');
+  expect(content).not.toContain('brapiToken');
+  const ctx = await browser.newContext({ baseURL: page.url().replace(/#.*$/, ''), viewport: page.viewportSize()! });
+  const other = await ctx.newPage();
+  await other.addInitScript(() => { localStorage.setItem('mxrf:onboarded', 'true'); localStorage.setItem('mxrf:termsAccepted', JSON.stringify('2026-11-08')); });
+  other.on('dialog', (d) => d.accept());
+  await other.goto('./#/perfil');
+  await expect(other.getByTestId('pr-summary')).toContainText('0 metas');
+  await other.getByTestId('pr-restore').setInputFiles({ name: 'copia.json', mimeType: 'application/json', buffer: Buffer.from(content) });
+  await expect(other.getByTestId('pr-summary')).toContainText('1 meta', { timeout: 10000 });
+  await expect(other.getByTestId('pr-name')).toHaveValue('Rapha');
+  await expect(other.getByTestId('pr-quiz-result')).toHaveText('Moderado');
+  await ctx.close();
+});

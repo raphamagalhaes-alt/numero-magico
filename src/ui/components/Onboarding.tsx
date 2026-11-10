@@ -12,6 +12,7 @@ export const ONBOARD_KEY = 'mxrf:onboarded';
 /** Três perguntas para personalizar o primeiro resultado; o formulário completo continua disponível. */
 export function Onboarding({ onDone, termsOnly = false }: { onDone: (ticker: string) => void; termsOnly?: boolean }) {
   const [agree, setAgree] = useState(false);
+  const [nick, setNick] = useState('');
   const u = useUniverse();
   const [goal, setGoal] = useState('1.000');
   const [contrib, setContrib] = useState('250');
@@ -21,6 +22,7 @@ export function Onboarding({ onDone, termsOnly = false }: { onDone: (ticker: str
   const finish = (skip: boolean) => {
     if (!agree) return setErr('Para continuar, confirme que leu e aceita os termos e o aviso de riscos.');
     save(TERMS_KEY, TERMS_VERSION);
+    if (nick.trim()) save('mxrf:familyName', nick.trim().slice(0, 30));
     if (termsOnly) return onDone('');
     if (!skip) {
       const g = parseBR(goal), c = parseBR(contrib);
@@ -39,7 +41,8 @@ export function Onboarding({ onDone, termsOnly = false }: { onDone: (ticker: str
         {!termsOnly && <p className="mt-1 text-sm text-mist-400">Três respostas rápidas. Depois você pode ajustar tudo.</p>}
         <div className="mt-4 flex flex-col gap-3">
           {!termsOnly && <>
-          <label className="flex flex-col gap-1 text-xs text-mist-400">1. Quanto você quer de renda por mês? (R$)<input autoFocus className="input num" value={goal} onChange={(e) => setGoal(e.target.value)} data-testid="ob-goal" /></label>
+          <label className="flex flex-col gap-1 text-xs text-mist-400">Como quer ser chamado(a)? (opcional)<input className="input" value={nick} maxLength={30} onChange={(e) => setNick(e.target.value)} placeholder="Ex.: Rapha" data-testid="ob-name" /></label>
+          <label className="flex flex-col gap-1 text-xs text-mist-400">1. Quanto você quer de renda por mês? (R$)<input className="input num" value={goal} onChange={(e) => setGoal(e.target.value)} data-testid="ob-goal" /></label>
           <label className="flex flex-col gap-1 text-xs text-mist-400">2. Quanto pode investir por mês? (R$)<input className="input num" value={contrib} onChange={(e) => setContrib(e.target.value)} data-testid="ob-contrib" /></label>
           <label className="flex flex-col gap-1 text-xs text-mist-400">3. Qual fundo quer simular?
             <select className="input" value={ticker} onChange={(e) => setTicker(e.target.value)} data-testid="ob-ticker">

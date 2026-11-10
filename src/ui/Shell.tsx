@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getCompareList } from './pages/Explorer';
 import { loadRaw as loadRawPref } from './storage';
-import { BarChart3, Bell, Calculator, GitCompare, Landmark, Wallet, RefreshCw, LineChart, Sunrise, CalendarCheck, Menu, Scale, BookOpen, Table2, CloudLightning, Baby, type LucideIcon } from 'lucide-react';
+import { BarChart3, Bell, Calculator, GitCompare, Landmark, Wallet, RefreshCw, LineChart, Sunrise, CalendarCheck, Menu, Scale, BookOpen, Table2, CloudLightning, Baby, User, type LucideIcon } from 'lucide-react';
 import { SimulatorPage } from './App';
 import { ExplorerPage } from './pages/Explorer';
 import { ComparePage } from './pages/Compare';
@@ -14,6 +14,7 @@ import { MonthPage, paydayDue } from './pages/Month';
 import { StormPage } from './pages/Storm';
 import { currentStorm } from './storm-state';
 import { KidsPage } from './pages/Kids';
+import { AvatarBadge, NAME_KEY, ProfilePage } from './pages/Profile';
 import { JournalPage, dueReviews, loadJournal } from './pages/Journal';
 import { LegalPage } from './pages/Legal';
 import { TERMS_KEY, TERMS_VERSION } from './legal';
@@ -25,7 +26,7 @@ import { loadRaw } from './storage';
 import { IS_WEB } from './mode';
 import { InstallApp } from './components/InstallApp';
 
-const ICONS: Record<string, LucideIcon> = { mercados: LineChart, mes: CalendarCheck, liberdade: Sunrise, diario: BookOpen, explorar: Table2, tempestade: CloudLightning, filhos: Baby, simulador: Calculator, comparar: GitCompare, juros: Landmark, carteira: Wallet, dados: RefreshCw };
+const ICONS: Record<string, LucideIcon> = { mercados: LineChart, mes: CalendarCheck, liberdade: Sunrise, diario: BookOpen, explorar: Table2, tempestade: CloudLightning, filhos: Baby, perfil: User, simulador: Calculator, comparar: GitCompare, juros: Landmark, carteira: Wallet, dados: RefreshCw };
 
 const BOTTOM = ['mes', 'liberdade', 'mercados', 'carteira', 'simulador'];
 
@@ -33,6 +34,9 @@ export function Shell() {
   const route = useRoute();
   const [simKey, setSimKey] = useState(0);
   const [more, setMore] = useState(false);
+  const [, setProfileTick] = useState(0);
+  useEffect(() => { const on = () => setProfileTick((n) => n + 1); window.addEventListener('nm:profile', on); return () => window.removeEventListener('nm:profile', on); }, []);
+  useEffect(() => { try { if (!localStorage.getItem('mxrf:since')) localStorage.setItem('mxrf:since', JSON.stringify(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }))); } catch { /* ignore */ } }, []);
   useEffect(() => setMore(false), [route.page]);
   const forced = window.location.search.includes('onboarding=1');
   const [onboard, setOnboard] = useState(() => forced || (!window.navigator.webdriver && (!loadRaw(ONBOARD_KEY, false) || loadRaw<string>(TERMS_KEY, '') !== TERMS_VERSION)));
@@ -63,6 +67,10 @@ export function Shell() {
             <span className="block text-base font-semibold tracking-tight sm:text-lg">Número Mágico</span>
             <span className="block text-[11px] text-mist-500">Planeje sua renda com investimentos</span>
           </span>
+        </a>
+        <a href="#/perfil" className="ml-auto flex items-center gap-2 sm:order-last sm:ml-0" aria-label="Meu perfil" data-testid="profile-btn">
+          <span className="hidden text-right text-xs text-mist-300 md:block">{loadRaw<string>(NAME_KEY, '') ? `Olá, ${loadRaw<string>(NAME_KEY, '')}` : 'Meu perfil'}</span>
+          <AvatarBadge />
         </a>
         {IS_WEB && <InstallApp />}
         <nav aria-label="Páginas" className="-mx-1 hidden max-w-full gap-1 overflow-x-auto text-xs sm:flex">
@@ -128,6 +136,7 @@ export function Shell() {
         {route.page === 'diario' && <JournalPage />}
         {route.page === 'tempestade' && <StormPage />}
         {route.page === 'filhos' && <KidsPage />}
+        {route.page === 'perfil' && <ProfilePage />}
         {route.page === 'explorar' && <ExplorerPage />}
         {route.page === 'comparar' && <ComparePage tickersParam={route.params.get('t')} />}
         {route.page === 'juros' && <RatesPage />}

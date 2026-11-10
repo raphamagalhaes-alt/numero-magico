@@ -1,7 +1,7 @@
 /** Roteamento por hash (#/explorar?t=...), sem dependências e compatível com hospedagem estática. */
 import { useEffect, useState } from 'react';
 
-export type Page = 'simulador' | 'mercados' | 'mes' | 'liberdade' | 'explorar' | 'comparar' | 'juros' | 'carteira' | 'diario' | 'tempestade' | 'filhos' | 'dados' | 'termos';
+export type Page = 'simulador' | 'mercados' | 'mes' | 'liberdade' | 'explorar' | 'comparar' | 'juros' | 'carteira' | 'diario' | 'tempestade' | 'filhos' | 'dados' | 'perfil' | 'termos';
 export const PAGES: { id: Page; label: string }[] = [
   { id: 'mercados', label: 'Mercados' },
   { id: 'mes', label: 'Meu mês' },
@@ -15,6 +15,7 @@ export const PAGES: { id: Page; label: string }[] = [
   { id: 'tempestade', label: 'Tempestade' },
   { id: 'filhos', label: 'Filhos' },
   { id: 'dados', label: 'Cotações' },
+  { id: 'perfil', label: 'Meu perfil' },
 ];
 
 export interface Route { page: Page; params: URLSearchParams }
