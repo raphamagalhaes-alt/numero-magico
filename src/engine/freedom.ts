@@ -29,6 +29,17 @@ export function capitalForIncome(monthlyIncome: number, realAnnual: number): num
   return cents((monthlyIncome * 12) / realAnnual);
 }
 
+/**
+ * Plano incremental: a renda passiva atual paga contas e não é reinvestida.
+ * Só os novos aportes acumulam o capital que falta. Todas as ferramentas de
+ * prazo/custo usam esta mesma base, sem capitalizar de novo o patrimônio atual.
+ */
+export function incrementalFreedomPlan(incomeGap: number, contribution: number, rate: number) {
+  const missingCapital = capitalForIncome(Math.max(0, incomeGap), rate);
+  const projection = { capital: 0, contribution, target: missingCapital ?? 0, rate };
+  return { missingCapital, projection };
+}
+
 /** Meses até o patrimônio chegar a `target`, aportando todo fim de mês (null se > 100 anos). */
 export function monthsToTarget(current: number, contribution: number, target: number, realAnnual: number): number | null {
   if (current >= target) return 0;

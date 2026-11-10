@@ -39,9 +39,9 @@ export function FreedomPage() {
   const { ipca: ipcaPlus, rate, pf, otherCapitalIncome, income, capital, contribution, cov } = plan;
   const timeline = billTimeline(s.bills, income, 0, contribution, rate);
   const fullCapital = plan.missingCapital;
-  const fullMonths = fullCapital === null ? null : monthsToTarget(0, contribution, fullCapital, rate);
+  const fullMonths = fullCapital === null ? null : monthsToTarget(plan.projection.capital, contribution, plan.projection.target, rate);
   const years = Math.max(1, Math.min(60, Math.round(num(s.years)) || 15));
-  const needed = fullCapital === null ? null : contributionFor(0, fullCapital, years * 12, rate);
+  const needed = fullCapital === null ? null : contributionFor(plan.projection.capital, plan.projection.target, years * 12, rate);
   const nextCapital = cov.next ? capitalForIncome(cov.next.missing, rate) : null;
 
   const moveBill = (i: number, d: -1 | 1) => setS((x) => { const b = [...x.bills]; const j = i + d; if (j < 0 || j >= b.length) return x; [b[i], b[j]] = [b[j], b[i]]; return { ...x, bills: b }; });
@@ -67,7 +67,7 @@ export function FreedomPage() {
         {income === 0 && <p className="text-xs text-mist-500">Ainda sem renda passiva: adicione seus ativos em <button type="button" className="underline" onClick={() => go('carteira')}>Carteira</button> ou informe outras rendas abaixo.</p>}
       </div>
 
-      <CostInFreedom />
+      <CostInFreedom state={s} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card flex flex-col gap-2 p-4" data-testid="fr-bills">
@@ -136,7 +136,7 @@ export function FreedomPage() {
 
       <details className="text-xs text-mist-500">
         <summary className="cursor-pointer">Como calculamos</summary>
-        <p className="mt-2">Renda passiva = renda estimada da Carteira (FIIs pelo último rendimento; ações pela média de 12 meses) + outras rendas que você informar. Outros investimentos contam como capital rendendo a taxa escolhida. O capital que falta é o que, rendendo essa taxa acima da inflação, gera a renda que ainda falta para as contas sem diminuir o poder de compra do patrimônio (renda = capital × taxa ÷ 12). Aportes no fim de cada mês, juros compostos mensais, sem impostos e custos. Projeção educativa, não é promessa de resultado nem recomendação.</p>
+        <p className="mt-2">Renda passiva = renda estimada da Carteira (FIIs pelo último rendimento; ações pela média de 12 meses) + outras rendas que você informar. Outros investimentos contam como capital rendendo a taxa escolhida. O capital que falta é o que, rendendo essa taxa acima da inflação, gera a renda que ainda falta para as contas sem diminuir o poder de compra do patrimônio (renda = capital × taxa ÷ 12). A renda atual é usada para pagar contas, sem reinvestimento. Apenas os novos aportes acumulam o capital que falta; esta é também a base de Quanto isso custa em liberdade e Meu mês. Aportes no fim de cada mês, juros compostos mensais, sem impostos e custos. Projeção educativa, não é promessa de resultado nem recomendação.</p>
       </details>
     </section>
   );

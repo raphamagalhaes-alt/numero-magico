@@ -98,7 +98,7 @@ export function JournalPage() {
           <p className="flex items-start gap-2 rounded-lg bg-loss-500/10 p-3 text-xs text-loss-400" data-testid="jr-impulse"><AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden />Atenção: sem reserva de emergência ou sob emoção/dica, o risco de arrependimento é maior. Sugestão: espere 24 horas antes de executar. Se registrar agora, o app marca um período de "esfriar a cabeça".</p>
         )}
         {f.action === 'Vender' && currentStorm().active && (
-          <p className="rounded-lg bg-loss-500/10 p-3 text-xs text-loss-400" data-testid="jr-storm">A bolsa está em queda forte agora. Antes de vender, veja o <a className="underline" href="#/tempestade">Modo tempestade</a> e a promessa que você fez.</p>
+          <p className="rounded-lg bg-loss-500/10 p-3 text-xs text-loss-400" data-testid="jr-storm">A última cotação disponível indica queda forte. Antes de vender, veja o <a className="underline" href="#/tempestade">Modo tempestade</a> e a promessa que você fez.</p>
         )}
         {err && <p className="text-xs text-loss-400" role="alert">{err}</p>}
         <button type="submit" className="btn btn-gold self-start" data-testid="jr-save">Registrar decisão</button>

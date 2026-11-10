@@ -69,7 +69,7 @@ export function FamilyGoals({ me }: { me: Omit<FamilyCard, 'name' | 'date'> }) {
     <section className="card flex flex-col gap-3 p-4" aria-labelledby="fam-title" data-testid="family">
       <div>
         <h2 id="fam-title" className="flex items-center gap-2 text-base font-semibold"><Users size={16} className="text-gold-400" aria-hidden />Metas da família</h2>
-        <p className="text-xs text-mist-400">Cada pessoa usa o app no próprio aparelho. Para acompanharem juntos, mandem o código (ou a imagem) uns para os outros. Sem cadastro e sem servidor: por padrão, nenhum valor em reais é compartilhado.</p>
+        <p className="text-xs text-mist-400">Cada pessoa usa o app no próprio aparelho. Para acompanharem juntos, mandem o código (ou a imagem) uns para os outros. O quadro guarda uma cópia do progresso recebido, sem atualização automática: enviem um novo código para atualizar. Sem cadastro e sem servidor; por padrão, nenhum valor em reais é compartilhado.</p>
       </div>
       <ol className="flex flex-col gap-2" data-testid="fam-board">
         {board.map((m) => (
@@ -87,7 +87,7 @@ export function FamilyGoals({ me }: { me: Omit<FamilyCard, 'name' | 'date'> }) {
       <div className="grid gap-3 md:grid-cols-2">
         <div className="flex flex-col gap-2">
           <label className="flex flex-col gap-1 text-xs text-mist-400">Seu nome ou apelido<input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Mãe, Rapha" maxLength={30} data-testid="fam-name" /></label>
-          <label className="flex items-center gap-2 text-xs text-mist-300"><input type="checkbox" checked={withValues} onChange={(e) => setWithValues(e.target.checked)} />Incluir valores em reais (renda por mês)</label>
+          <label className="flex items-center gap-2 text-xs text-mist-300"><input type="checkbox" checked={withValues} onChange={(e) => setWithValues(e.target.checked)} />Incluir renda mensal e total das despesas mensais em reais</label>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn" onClick={copy} data-testid="fam-copy"><Copy size={14} aria-hidden />Copiar código</button>
             <button type="button" className="btn" onClick={share}>{'share' in navigator ? <Share2 size={14} aria-hidden /> : <ImageIcon size={14} aria-hidden />}Compartilhar imagem</button>
