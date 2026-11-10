@@ -1,6 +1,6 @@
 /** Estado e números do plano de liberdade, compartilhados por Liberdade, Meu mês e Custo em liberdade. */
 import { useMemo } from 'react';
-import { capitalForIncome, coverage, type Bill } from '../engine/freedom';
+import { incrementalFreedomPlan, coverage, type Bill } from '../engine/freedom';
 import { useMacro, useUniverse } from './data';
 import { loadRaw } from './storage';
 import { loadPositions, portfolioTotals } from './pages/Portfolio';
@@ -37,8 +37,7 @@ export function useFreedomPlan(state?: FreedomState) {
   const income = pf.income + num(s.extraIncome) + otherCapitalIncome;
   const capital = pf.value + num(s.extraCapital);
   const cov = coverage(s.bills, income);
-  const missingCapital = capitalForIncome(Math.max(0, cov.total - income), rate);
-  // para comparar gastos e aportes: o capital TOTAL que gera todas as contas, partindo do que já existe
-  const target = missingCapital === null ? 0 : capital + missingCapital;
-  return { s, ipca, rate, pf, otherCapitalIncome, income, capital, contribution: num(s.contribution), cov, missingCapital, target };
+  const { missingCapital, projection } = incrementalFreedomPlan(cov.total - income, num(s.contribution), rate);
+  const target = projection.target;
+  return { s, ipca, rate, pf, otherCapitalIncome, income, capital, contribution: num(s.contribution), cov, missingCapital, target, projection };
 }

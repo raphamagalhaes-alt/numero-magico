@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { billTimeline, capitalForIncome, contributionFor, coverage, idealByClass, monthsToTarget, planContribution } from './freedom';
+import { billTimeline, capitalForIncome, contributionFor, coverage, freedomDelayDays, idealByClass, incrementalFreedomPlan, monthsToTarget, monthsToTargetFrac, planContribution } from './freedom';
 
 const bills = [{ name: 'Internet', amount: 100 }, { name: 'Luz', amount: 150 }, { name: 'Mercado', amount: 1000 }];
 
@@ -67,5 +67,25 @@ describe('Divisão por classes (% ideal = % da classe ÷ nº de ativos)', () => 
     const r2 = planContribution([{ ticker: 'X', shares: 0, price: 100, target: 50 }], 1000, { value: 0, target: 50 });
     expect(r2.fixedBuy).toBe(500);
     expect(r2.buys).toEqual([{ ticker: 'X', shares: 5, cost: 500 }]);
+  });
+});
+
+describe('mesma base incremental em todas as ferramentas de liberdade', () => {
+  it('não reinveste uma segunda vez o patrimônio cuja renda já paga contas', () => {
+    // R$ 100 mil já geram R$ 500/mês e pagam metade das contas de R$ 1.000.
+    const { missingCapital, projection } = incrementalFreedomPlan(1000 - 500, 500, 0.06);
+    expect(missingCapital).toBe(100000);
+    expect(projection.capital).toBe(0);
+    const months = monthsToTarget(projection.capital, projection.contribution, projection.target, projection.rate);
+    expect(months).toBe(141);
+    expect(Math.ceil(monthsToTargetFrac(projection.capital, projection.contribution, projection.target, projection.rate)!)).toBe(months);
+    expect(billTimeline([{ name: 'Contas', amount: 1000 }], 500, 0, 500, 0.06)[0].months).toBe(months);
+    expect(freedomDelayDays(projection, { oneOff: 1000 })).toBeGreaterThan(0);
+    expect(freedomDelayDays(projection, { oneOff: -1000 })).toBeLessThan(0);
+  });
+  it('não inventa prazo quando não há rendimento ou falta de renda', () => {
+    expect(incrementalFreedomPlan(500, 500, 0).missingCapital).toBeNull();
+    expect(freedomDelayDays(incrementalFreedomPlan(500, 500, 0).projection, { oneOff: 100 })).toBeNull();
+    expect(incrementalFreedomPlan(-100, 500, 0.06).projection.target).toBe(0);
   });
 });

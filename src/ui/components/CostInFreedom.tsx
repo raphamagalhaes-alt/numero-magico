@@ -3,16 +3,16 @@ import { Hourglass, Share2 } from 'lucide-react';
 import { daysLabel, freedomDelayDays } from '../../engine/freedom';
 import { fmtBRL } from '../format';
 import { go } from '../route';
-import { num, useFreedomPlan } from '../freedom-plan';
+import { num, useFreedomPlan, type FreedomState } from '../freedom-plan';
 import { AmountWords, NumInput } from './NumInput';
 
 /** "Quanto isso custa em liberdade?": traduz um gasto em dias a mais até a liberdade financeira. */
-export function CostInFreedom({ compact = false }: { compact?: boolean }) {
-  const plan = useFreedomPlan();
+export function CostInFreedom({ compact = false, state }: { compact?: boolean; state?: FreedomState }) {
+  const plan = useFreedomPlan(state);
   const [value, setValue] = useState('');
   const [monthly, setMonthly] = useState(false);
   const v = num(value);
-  const p = { capital: plan.capital, contribution: plan.contribution, target: plan.target, rate: plan.rate };
+  const p = plan.projection;
   const days = v > 0 ? freedomDelayDays(p, monthly ? { monthly: v } : { oneOff: v }) : null;
   const billsDays = plan.cov.total > 0 && v > 0 ? Math.round(v / (plan.cov.total / 30)) : null;
   const incomeForever = v > 0 && !monthly ? Math.round((v * plan.rate / 12) * 100) / 100 : null;
@@ -45,7 +45,7 @@ export function CostInFreedom({ compact = false }: { compact?: boolean }) {
       {v > 0 && days === null && (
         <p className="text-xs text-mist-400" data-testid="cost-fallback">{billsDays !== null ? <>Isso equivale a <b>{billsDays} dias</b> de todas as contas da sua casa. </> : null}Para ver em dias de liberdade, preencha suas contas e quanto investe por mês na <button type="button" className="underline" onClick={() => go('liberdade')}>Liberdade</button>.</p>
       )}
-      <p className="text-[11px] text-mist-500">Calculado com o seu plano (contas da casa, patrimônio, aporte de {brl(plan.contribution)}/mês e {(plan.rate * 100).toFixed(1).replace('.', ',')}% ao ano acima da inflação). Não é para culpar ninguém: é para decidir sabendo o preço.</p>
+      <p className="text-[11px] text-mist-500">Calculado com o mesmo plano incremental da Liberdade: a renda atual cobre contas, sem reinvestimento; novos aportes acumulam o capital que falta. Aporte de {brl(plan.contribution)}/mês e {(plan.rate * 100).toFixed(1).replace('.', ',')}% ao ano acima da inflação. O gasto representa dinheiro que deixa de ser aportado. Não é para culpar ninguém: é para decidir sabendo o preço.</p>
     </section>
   );
 }

@@ -106,7 +106,7 @@ export function Shell() {
 
       {route.page !== 'tempestade' && currentStorm().active && (
         <button type="button" className="no-print card flex items-center gap-2 p-3 text-left text-xs text-loss-400 ring-loss-500/40" onClick={() => go('tempestade')} data-testid="storm-banner">
-          <CloudLightning size={14} aria-hidden />A bolsa está em queda forte. Antes de qualquer decisão, abra o Modo tempestade.
+          <CloudLightning size={14} aria-hidden />A última cotação disponível indica queda forte. Antes de qualquer decisão, abra o Modo tempestade.
         </button>
       )}
 

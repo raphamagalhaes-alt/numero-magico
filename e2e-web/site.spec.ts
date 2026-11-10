@@ -267,7 +267,7 @@ test('site: Modo tempestade (aviso, promessa, seus números) e metas dos filhos'
   });
   await page.goto('./#/mercados');
   await page.getByTestId('storm-banner').click();
-  await expect(page.getByTestId('st-active')).toContainText('-3,2% hoje');
+  await expect(page.getByTestId('st-active')).toContainText('-3,2% na variação informada');
   await expect(page.getByTestId('st-numbers')).toContainText('6 meses'); // 25.620 ÷ 4.270 de contas
   await expect(page.getByTestId('st-history')).toContainText('2020');
   await page.getByTestId('st-rule-input').fill('Não vou vender nada e vou manter meus aportes.');
