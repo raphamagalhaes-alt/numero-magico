@@ -69,13 +69,23 @@ export interface Buy { ticker: string; shares: number; cost: number }
  * Aporte do mês: distribui `cash` em cotas INTEIRAS para aproximar a carteira da divisão-alvo
  * definida pela própria pessoa (sem vender nada). Compra sempre a cota do ativo mais abaixo do alvo.
  */
-export function planContribution(holdings: Holding[], cash: number) {
+export function planContribution(holdings: Holding[], cash: number, fixed?: { value: number; target: number }) {
   const hs = holdings.filter((h) => h.price > 0 && h.target > 0);
-  const tsum = hs.reduce((s, h) => s + h.target, 0);
+  const fx = fixed && fixed.target > 0 ? fixed : null;
+  const tsum = hs.reduce((s, h) => s + h.target, 0) + (fx?.target ?? 0);
   const value = (h: Holding, extra: number) => (h.shares + extra) * h.price;
-  const total = holdings.reduce((s, h) => s + h.shares * Math.max(0, h.price), 0) + cash;
+  const total = holdings.reduce((s, h) => s + h.shares * Math.max(0, h.price), 0) + (fixed?.value ?? 0) + cash;
   const bought = new Map<string, number>(hs.map((h) => [h.ticker, 0]));
   let left = cash;
+  // renda fixa (comprada em reais, não em cotas): recebe a parte do dinheiro proporcional ao quanto está abaixo do alvo
+  let fixedBuy = 0;
+  if (fx && tsum > 0) {
+    const gap = (h: Holding) => Math.max(0, (h.target / tsum) * total - h.shares * h.price);
+    const fxGap = Math.max(0, (fx.target / tsum) * total - fx.value);
+    const allGaps = hs.reduce((s, h) => s + gap(h), 0) + fxGap;
+    fixedBuy = allGaps > 0 ? cents(Math.min(fxGap, cash * (fxGap / allGaps))) : 0;
+    left -= fixedBuy;
+  }
   for (let guard = 0; guard < 100000 && tsum > 0; guard++) {
     let best: Holding | null = null, bestGap = 0;
     for (const h of hs) {
@@ -90,7 +100,7 @@ export function planContribution(holdings: Holding[], cash: number) {
   }
   const buys: Buy[] = hs.map((h) => ({ ticker: h.ticker, shares: bought.get(h.ticker)!, cost: cents(bought.get(h.ticker)! * h.price) })).filter((b) => b.shares > 0);
   const after = holdings.map((h) => ({ ticker: h.ticker, weight: total > 0 ? ((h.shares + (bought.get(h.ticker) ?? 0)) * Math.max(0, h.price)) / total : 0, target: tsum > 0 ? h.target / tsum : 0 }));
-  return { buys, spent: cents(cash - left), leftover: cents(left), after };
+  return { buys, fixedBuy, spent: cents(cash - left), leftover: cents(left), after, fixedAfter: fx && total > 0 ? (fx.value + fixedBuy) / total : 0 };
 }
 
 /** Como `monthsToTarget`, mas com fração do último mês (para falar em dias). Aceita patrimônio negativo. */
@@ -131,4 +141,13 @@ export function daysLabel(days: number): string {
   const y = Math.floor(months / 12), m = months % 12;
   if (!y) return `${m} meses`;
   return `${y} ano${y > 1 ? 's' : ''}${m ? ` e ${m} ${m > 1 ? 'meses' : 'mês'}` : ''}`;
+}
+
+/** % ideal de cada ativo a partir do % de cada classe, dividido igualmente entre os ativos da classe. */
+export function idealByClass<C extends string>(assets: { ticker: string; cls: C }[], classPct: Partial<Record<C, number>>): Record<string, number> {
+  const count = new Map<C, number>();
+  for (const a of assets) count.set(a.cls, (count.get(a.cls) ?? 0) + 1);
+  const out: Record<string, number> = {};
+  for (const a of assets) out[a.ticker] = (classPct[a.cls] ?? 0) / 100 / count.get(a.cls)!;
+  return out;
 }

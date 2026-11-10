@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { billTimeline, capitalForIncome, contributionFor, coverage, monthsToTarget, planContribution } from './freedom';
+import { billTimeline, capitalForIncome, contributionFor, coverage, idealByClass, monthsToTarget, planContribution } from './freedom';
 
 const bills = [{ name: 'Internet', amount: 100 }, { name: 'Luz', amount: 150 }, { name: 'Mercado', amount: 1000 }];
 
@@ -49,5 +49,23 @@ describe('Aporte do mês (cotas inteiras rumo à divisão escolhida)', () => {
     const r = planContribution([{ ticker: 'A', shares: 0, price: 10, target: 0 }, { ticker: 'B', shares: 0, price: 10, target: 1 }], 55);
     expect(r.buys).toEqual([{ ticker: 'B', shares: 5, cost: 50 }]);
     expect(r.leftover).toBe(5);
+  });
+});
+
+describe('Divisão por classes (% ideal = % da classe ÷ nº de ativos)', () => {
+  it('reproduz a lógica: 25% em 17 ações = 1,47% cada; 2% em 3 criptos = 0,67%', () => {
+    const assets = [...Array.from({ length: 17 }, (_, i) => ({ ticker: `A${i}`, cls: 'acoes' as const })), ...Array.from({ length: 3 }, (_, i) => ({ ticker: `C${i}`, cls: 'cripto' as const }))];
+    const w = idealByClass(assets, { acoes: 25, cripto: 2 });
+    expect(w.A0).toBeCloseTo(0.0147, 4);
+    expect(w.C2).toBeCloseTo(0.0067, 4);
+  });
+  it('renda fixa abaixo do alvo recebe sua parte do aporte em reais', () => {
+    const r = planContribution([{ ticker: 'X', shares: 10, price: 100, target: 50 }], 1000, { value: 0, target: 50 });
+    // total depois = 2000 → alvo 1000 em cada; X tem 1000 (no alvo), renda fixa tem 0 → todo o aporte vai para a renda fixa
+    expect(r.fixedBuy).toBe(1000);
+    expect(r.buys).toEqual([]);
+    const r2 = planContribution([{ ticker: 'X', shares: 0, price: 100, target: 50 }], 1000, { value: 0, target: 50 });
+    expect(r2.fixedBuy).toBe(500);
+    expect(r2.buys).toEqual([{ ticker: 'X', shares: 5, cost: 500 }]);
   });
 });

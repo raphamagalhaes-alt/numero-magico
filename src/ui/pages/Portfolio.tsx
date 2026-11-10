@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bell, Calculator, PiggyBank, Plus, Trash2, Wallet } from 'lucide-react';
 import { magicNumber } from '../../engine';
-import { planContribution } from '../../engine/freedom';
+import { idealByClass, planContribution } from '../../engine/freedom';
+import { EXAMPLE, type ExampleClass } from '../../markets/example';
 import type { AssetMetrics } from '../../market/universe';
-import { useUniverse } from '../data';
+import { invalidateData, useUniverse } from '../data';
 import { fmtBRL, fmtDecimal, fmtInt, fmtPct } from '../format';
 import { go } from '../route';
 import { loadRaw, save } from '../storage';
@@ -56,6 +57,18 @@ export function portfolioTotals(positions: Position[], assets: AssetMetrics[]) {
 }
 
 export const TARGET_KEY = 'mxrf:targets';
+const CLASS_LABEL: Record<ExampleClass, string> = { acoes: 'Ações Brasil', fiis: 'Fundos imobiliários', tesouro: 'Tesouro / renda fixa', exterior: 'Ações exterior', etfs: 'ETFs internacionais', cripto: 'Criptomoedas' };
+const CRYPTO = new Set(['QBTC11', 'BITH11', 'HASH11', 'ETHE11', 'QETH11', 'BITI11', 'BITC11', 'ETHY11', 'IBIT39', 'BITO39', 'ETHA39']);
+const BR_INDEX_ETF = new Set(['BOVA11', 'BOVV11', 'BOVX11', 'SMAL11', 'DIVO11', 'BRAX11', 'ECOO11', 'PIBB11']);
+/** Classe de um ativo para a divisão por classes. */
+export function classOf(a: AssetMetrics): ExampleClass {
+  if (CRYPTO.has(a.ticker)) return 'cripto';
+  if (a.cls === 'FII' || a.cls === 'FIAGRO') return 'fiis';
+  if (a.cls === 'BDR') return /39$/.test(a.ticker) ? 'etfs' : 'exterior';
+  if (a.cls === 'ETF') return BR_INDEX_ETF.has(a.ticker) ? 'acoes' : 'etfs';
+  return 'acoes';
+}
+const DEFAULT_CLASSES = Object.fromEntries(EXAMPLE.map((g) => [g.id, String(g.pct)])) as Record<ExampleClass, string>;
 
 /** Aporte do mês: quantas cotas inteiras comprar de cada ativo para chegar perto da divisão que a pessoa escolheu. */
 function MonthlyContribution({ positions, assets }: { positions: Position[]; assets: AssetMetrics[] }) {
@@ -66,8 +79,27 @@ function MonthlyContribution({ positions, assets }: { positions: Position[]; ass
   const num = (s: string | undefined) => { const n = Number(String(s ?? '').replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : 0; };
   const holdings = rows.map(({ p, a }) => ({ ticker: p.ticker, shares: p.shares, price: a!.close, target: num(targets[p.ticker] ?? '1') }));
   const money = num(cash);
-  const plan = planContribution(holdings, money);
-  const tsum = holdings.reduce((s, h) => s + h.target, 0);
+  const [mode, setMode] = useState<'ativo' | 'classes'>(() => loadRaw<'ativo' | 'classes'>('mxrf:contribMode', 'ativo'));
+  const [classPct, setClassPct] = useState<Record<ExampleClass, string>>(() => {
+    const v = loadRaw<Partial<Record<ExampleClass, number | string>>>('mxrf:classTargets', {});
+    return Object.fromEntries(Object.keys(DEFAULT_CLASSES).map((k) => [k, v[k as ExampleClass] !== undefined ? String(v[k as ExampleClass]) : DEFAULT_CLASSES[k as ExampleClass]])) as Record<ExampleClass, string>;
+  });
+  const [fixedHave, setFixedHave] = useState(() => loadRaw<string>('mxrf:fixedHave', '0'));
+  useEffect(() => save('mxrf:contribMode', mode), [mode]);
+  useEffect(() => save('mxrf:classTargets', Object.fromEntries(Object.entries(classPct).map(([k, v]) => [k, num(v)]))), [classPct]);
+  useEffect(() => save('mxrf:fixedHave', fixedHave), [fixedHave]);
+  const byClass = mode === 'classes';
+  const cls = (t: string) => classOf(rows.find((r) => r.p.ticker === t)!.a!);
+  const pcts = Object.fromEntries(Object.entries(classPct).map(([k, v]) => [k, num(v)])) as Record<ExampleClass, number>;
+  const ideal = idealByClass(holdings.map((h) => ({ ticker: h.ticker, cls: cls(h.ticker) })), pcts);
+  const fixedValue = num(fixedHave);
+  const used = new Set(holdings.map((h) => cls(h.ticker)));
+  const missing = (Object.keys(pcts) as ExampleClass[]).filter((k) => k !== 'tesouro' && pcts[k] > 0 && !used.has(k));
+  const pctSum = (Object.keys(pcts) as ExampleClass[]).filter((k) => k === 'tesouro' || used.has(k)).reduce((s2, k) => s2 + pcts[k], 0);
+  const hold2 = byClass ? holdings.map((h) => ({ ...h, target: ideal[h.ticker] * 100 })) : holdings;
+  const plan = byClass ? planContribution(hold2, money, { value: fixedValue, target: pcts.tesouro }) : planContribution(holdings, money);
+  const tsum = hold2.reduce((s2, h) => s2 + h.target, 0) + (byClass ? pcts.tesouro : 0);
+  const totalNow = hold2.reduce((s2, x) => s2 + x.shares * x.price, 0) + (byClass ? fixedValue : 0);
   if (!rows.length) return null;
   return (
     <section className="card flex flex-col gap-3 p-4" aria-labelledby="ap-title" data-testid="pf-contrib">
@@ -75,14 +107,55 @@ function MonthlyContribution({ positions, assets }: { positions: Position[]; ass
         <h2 id="ap-title" className="flex items-center gap-2 text-base font-semibold"><PiggyBank size={16} className="text-gold-400" aria-hidden />Aporte do mês</h2>
         <p className="text-xs text-mist-400">Diga quanto vai investir e a divisão que <b>você</b> quer (pesos). Calculamos quantas cotas inteiras comprar de cada um para chegar mais perto dessa divisão, sem vender nada.</p>
       </div>
+      <div className="seg self-start" role="group" aria-label="Como dividir">
+        <button type="button" aria-pressed={!byClass} onClick={() => setMode('ativo')}>Peso por ativo</button>
+        <button type="button" aria-pressed={byClass} onClick={() => setMode('classes')} data-testid="ap-mode-classes">Divisão por classes</button>
+      </div>
+      {byClass && (
+        <div className="flex flex-col gap-2 rounded-lg bg-ink-850 p-3" data-testid="ap-classes">
+          <p className="text-xs text-mist-400">% de cada classe na sua carteira. O % ideal de cada ativo é o % da classe dividido igualmente entre os ativos dela.</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {(Object.keys(CLASS_LABEL) as ExampleClass[]).map((k) => (
+              <label key={k} className="flex flex-col gap-1 text-[11px] text-mist-400">{CLASS_LABEL[k]} (%)<NumInput className="input num !py-1" value={classPct[k]} onChange={(e) => setClassPct((c) => ({ ...c, [k]: e.target.value }))} data-testid={`ap-pct-${k}`} /></label>
+            ))}
+          </div>
+          <label className="flex max-w-xs flex-col gap-1 text-[11px] text-mist-400">Quanto já tenho em Tesouro / renda fixa (R$)<NumInput className="input num !py-1" value={fixedHave} onChange={(e) => setFixedHave(e.target.value)} data-testid="ap-fixed" /><AmountWords value={fixedHave} /></label>
+          {Math.round(pctSum) !== 100 && <p className="text-[11px] text-gold-300">As classes que você tem somam {pctSum.toLocaleString('pt-BR')}%; os alvos são ajustados proporcionalmente.</p>}
+          {missing.length > 0 && <p className="text-[11px] text-mist-500">Sem ativos na Carteira para: {missing.map((k) => CLASS_LABEL[k]).join(', ')} — esses % ficam de fora até você adicionar algum ativo dessas classes.</p>}
+        </div>
+      )}
       <label className="flex max-w-xs flex-col gap-1 text-xs text-mist-400">Quanto vou investir agora (R$)<NumInput className="input num" inputMode="decimal" value={cash} onChange={(e) => setCash(e.target.value)} data-testid="ap-cash" /><AmountWords value={cash} /></label>
       <div className="overflow-x-auto">
         <table className="num w-full text-xs">
-          <thead><tr className="text-mist-400">{['Ativo', 'Peso que eu quero', 'Hoje', 'Alvo', 'Comprar', 'Custo', 'Depois'].map((h, i) => <th key={h} scope="col" className={`px-2 py-1.5 font-medium ${i ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead>
-          <tbody>{holdings.map((h) => {
+          <thead><tr className="text-mist-400">{(byClass ? ['Ativo', 'Classe', '% carteira', '% ideal', 'Comprar?', 'Comprar', 'Custo', 'Depois'] : ['Ativo', 'Peso que eu quero', 'Hoje', 'Alvo', 'Comprar', 'Custo', 'Depois']).map((h, i) => <th key={h} scope="col" className={`px-2 py-1.5 font-medium ${i ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead>
+          <tbody>{byClass && (
+            <tr className="border-t border-white/5" data-ticker="renda-fixa">
+              <th scope="row" className="px-2 py-1.5 text-left font-medium">Tesouro / renda fixa</th>
+              <td className="px-2 py-1.5 text-right text-mist-400">Renda fixa</td>
+              <td className="px-2 py-1.5 text-right">{totalNow ? fmtPct(fixedValue / totalNow, 2) : '—'}</td>
+              <td className="px-2 py-1.5 text-right">{tsum ? fmtPct(pcts.tesouro / tsum, 2) : '—'}</td>
+              <td className="px-2 py-1.5 text-right">{tsum && pcts.tesouro > 0 ? ((totalNow ? fixedValue / totalNow : 0) < pcts.tesouro / tsum - 1e-9 ? <span className="text-gain-400">Sim</span> : <span className="text-mist-500">Não</span>) : '—'}</td>
+              <td className="px-2 py-1.5 text-right font-semibold text-gold-300">{plan.fixedBuy ? `aplicar ${fmtBRL(plan.fixedBuy.toFixed(2))}` : '—'}</td>
+              <td className="px-2 py-1.5 text-right">{plan.fixedBuy ? fmtBRL(plan.fixedBuy.toFixed(2)) : '—'}</td>
+              <td className="px-2 py-1.5 text-right">{fmtPct(plan.fixedAfter, 1)}</td>
+            </tr>
+          )}{hold2.map((h) => {
             const buy = plan.buys.find((b) => b.ticker === h.ticker);
             const aft = plan.after.find((x) => x.ticker === h.ticker)!;
-            const totalNow = holdings.reduce((s, x) => s + x.shares * x.price, 0);
+            const now = totalNow ? h.shares * h.price / totalNow : 0;
+            const idealPct = tsum ? h.target / tsum : 0;
+            if (byClass) return (
+              <tr key={h.ticker} className="border-t border-white/5" data-ticker={h.ticker}>
+                <th scope="row" className="px-2 py-1.5 text-left font-medium">{h.ticker}</th>
+                <td className="px-2 py-1.5 text-right text-mist-400">{CLASS_LABEL[cls(h.ticker)]}</td>
+                <td className="px-2 py-1.5 text-right">{fmtPct(now, 2)}</td>
+                <td className="px-2 py-1.5 text-right">{fmtPct(idealPct, 2)}</td>
+                <td className="px-2 py-1.5 text-right" data-testid="ap-buy-flag">{now < idealPct - 1e-9 ? <span className="text-gain-400">Sim</span> : <span className="text-mist-500">Não</span>}</td>
+                <td className="px-2 py-1.5 text-right font-semibold text-gold-300">{buy ? `${fmtInt(buy.shares)} cota${buy.shares > 1 ? 's' : ''}` : '—'}</td>
+                <td className="px-2 py-1.5 text-right">{buy ? fmtBRL(buy.cost.toFixed(2)) : '—'}</td>
+                <td className="px-2 py-1.5 text-right">{fmtPct(aft.weight, 1)}</td>
+              </tr>
+            );
             return (
               <tr key={h.ticker} className="border-t border-white/5" data-ticker={h.ticker}>
                 <th scope="row" className="px-2 py-1.5 text-left font-medium">{h.ticker}</th>
@@ -97,7 +170,7 @@ function MonthlyContribution({ positions, assets }: { positions: Position[]; ass
           })}</tbody>
         </table>
       </div>
-      <p className="text-xs text-mist-300" data-testid="ap-summary">{plan.buys.length ? <>Total a comprar: <b>{fmtBRL(plan.spent.toFixed(2))}</b> · sobra {fmtBRL(plan.leftover.toFixed(2))} (fica para o próximo mês).</> : 'Com esse valor não dá para comprar uma cota inteira que aproxime da divisão escolhida.'}</p>
+      <p className="text-xs text-mist-300" data-testid="ap-summary">{plan.buys.length || plan.fixedBuy ? <>{plan.fixedBuy ? <>Aplicar em renda fixa: <b>{fmtBRL(plan.fixedBuy.toFixed(2))}</b> · </> : null}Total a comprar: <b>{fmtBRL(plan.spent.toFixed(2))}</b> · sobra {fmtBRL(plan.leftover.toFixed(2))} (fica para o próximo mês).</> : 'Com esse valor não dá para comprar uma cota inteira que aproxime da divisão escolhida.'}</p>
       <p className="text-[11px] text-mist-500">A divisão é escolha sua; o cálculo só faz a conta. Preços do último fechamento disponível — confira na corretora antes de comprar. Não é recomendação.</p>
     </section>
   );
@@ -114,15 +187,25 @@ export function PortfolioPage() {
   const assets = useMemo(() => u.data?.assets ?? [], [u.data]);
   const alerts = useMemo(() => newDividendAlerts(positions, assets), [positions, assets]);
 
-  const add = (e: React.FormEvent) => {
+  const [busy, setBusy] = useState(false);
+  const add = async (e: React.FormEvent) => {
     e.preventDefault();
     const t = ticker.trim().toUpperCase();
     const n = parseNum(shares) ?? NaN;
-    if (!assets.some((a) => a.ticker === t)) return setErr('Ticker não encontrado entre os ativos negociados.');
+    if (!/^[A-Z0-9]{4}\d{1,2}$/.test(t)) return setErr('Informe o código do ativo (ex.: PETR4, MXRF11, AAPL34).');
     if (!Number.isInteger(n) || n < 0) return setErr('Informe um número inteiro de cotas.');
+    if (!assets.some((a) => a.ticker === t)) {
+      // ainda sem cotação neste aparelho: busca agora (com a chave da brapi, no site)
+      setErr(null); setBusy(true);
+      const st = await fetch(`/api/market/${t}`).then((r) => (r.ok ? r.json() : null)).catch(() => null) as { snapshot?: unknown } | null;
+      setBusy(false);
+      if (!st?.snapshot) return setErr(`Não encontramos cotação para ${t}. Confira o código ou ative suas cotações (chave grátis da brapi) em Mercados.`);
+      invalidateData();
+    }
     setErr(null);
     setPositions((p) => [...p.filter((x) => x.ticker !== t), { ticker: t, shares: n }].sort((a, b) => a.ticker.localeCompare(b.ticker)));
-    setTicker(''); setShares('');
+    // limpa só se a pessoa não começou a digitar outro ativo enquanto buscávamos
+    setTicker((cur) => (cur.trim().toUpperCase() === t ? '' : cur)); setShares((cur) => (cur === shares ? '' : cur));
   };
   const notify = async () => {
     if (!('Notification' in window)) return;
@@ -153,7 +236,7 @@ export function PortfolioPage() {
         <label className="flex flex-col gap-1 text-xs text-mist-400">Ticker<input className="input uppercase" list="pf-tickers" value={ticker} onChange={(e) => setTicker(e.target.value)} data-testid="pf-ticker" /></label>
         <datalist id="pf-tickers">{assets.filter((a) => a.cls === 'FII' || a.cls === 'FIAGRO' || a.cls === 'ACAO').slice(0, 1200).map((a) => <option key={a.ticker} value={a.ticker}>{a.name}</option>)}</datalist>
         <label className="flex flex-col gap-1 text-xs text-mist-400">Cotas que tenho<NumInput className="input num" decimals={false} value={shares} onChange={(e) => setShares(e.target.value)} data-testid="pf-shares" /></label>
-        <div className="flex items-end"><button className="btn btn-gold w-full" type="submit"><Plus size={14} aria-hidden />Adicionar</button></div>
+        <div className="flex items-end"><button className="btn btn-gold w-full" type="submit" disabled={busy}><Plus size={14} aria-hidden />{busy ? 'Buscando…' : 'Adicionar'}</button></div>
         <label className="flex flex-col gap-1 text-xs text-mist-400 md:col-start-5">Cotas novas/mês desejadas<NumInput className="input num" decimals={false} value={desired} onChange={(e) => setDesired(e.target.value)} /></label>
         {err && <p className="col-span-full text-xs text-loss-400" role="alert">{err}</p>}
       </form>

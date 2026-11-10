@@ -6,6 +6,10 @@ import { IS_WEB } from '../mode';
 import { go } from '../route';
 import { fmtPct } from '../format';
 import { webBrapiToken } from '../../web/backend';
+import { EXAMPLE, exampleTickers } from '../../markets/example';
+import { useMacro } from '../data';
+import { save } from '../storage';
+import { PieChart } from 'lucide-react';
 
 const DESKTOP_KEY = 'mxrf:brapiKey';
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: v < 1 ? 4 : 2 });
@@ -31,7 +35,7 @@ function Change({ v, big = false }: { v: number | null; big?: boolean }) {
   return <span className={`inline-flex items-center gap-0.5 font-medium ${tone(v)} ${big ? 'text-sm' : 'text-xs'}`}>{Icon && <Icon size={big ? 14 : 12} aria-hidden />}{pct(v)}</span>;
 }
 
-function Row({ item, q }: { item: CatalogItem; q?: Quote }) {
+function Row({ item, q, ideal }: { item: CatalogItem; q?: Quote; ideal?: number }) {
   const day = q?.changePct ?? null;
   const m3 = changeOver(q, 65);
   return (
@@ -39,6 +43,7 @@ function Row({ item, q }: { item: CatalogItem; q?: Quote }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-mist-100">{item.name}</p>
         <p className="truncate text-[11px] text-mist-500">{item.symbol} · {item.sector}{item.note ? ` · ${item.note}` : ''}</p>
+        {ideal !== undefined && <p className="text-[11px] text-gold-300/90">% ideal no exemplo: {fmtPct(ideal, 2)}</p>}
       </div>
       <div className="hidden sm:block"><Spark closes={q ? [...q.closes, q.price] : []} up={(m3 ?? 0) >= 0} /></div>
       <div className="w-28 text-right">
@@ -82,19 +87,30 @@ export function MarketsPage() {
   const visible = useMemo(() => {
     const qq = q.trim().toLowerCase();
     if (qq) return CATALOG.filter((i) => i.symbol.toLowerCase().includes(qq) || i.name.toLowerCase().includes(qq) || i.sector.toLowerCase().includes(qq));
-    return CATALOG.filter(GROUPS.find((g) => g.id === group)!.filter);
+    return group === 'exemplo' ? [] : CATALOG.filter(GROUPS.find((g) => g.id === group)!.filter);
   }, [group, q]);
 
+  // lista pedida mais recente; se uma busca já estiver rodando, a nova fica na fila e roda logo depois
+  const wanted = useRef<string[]>([]);
+  const pending = useRef<boolean | null>(null);
+  wanted.current = [...new Set([...INDICES.map((i) => i.symbol), 'IVVB11', 'GOLD11', ...(group === 'exemplo' && !q ? exampleTickers() : visible.map((i) => i.symbol))])];
   const refresh = useCallback(async (force = false) => {
-    if (!token || running.current) return;
+    if (!token) return;
+    if (running.current) { pending.current = pending.current || force; return; }
     running.current = true; setNote(null);
-    const syms = [...INDICES.map((i) => i.symbol), 'IVVB11', 'GOLD11', ...visible.map((i) => i.symbol)];
-    const r = await refreshQuotes([...new Set(syms)], token, { force, onProgress: (d, t) => setBusy(`Atualizando ${d}/${t}…`) });
-    setQuotes(loadCache()); setBusy(null); running.current = false;
-    if (r.stopped) setNote(r.stopped);
-    else if (r.failed.length) setNote(`Sem cotação agora para: ${r.failed.join(', ')}.`);
-  }, [token, visible]);
-  useEffect(() => { void refresh(); }, [refresh]);
+    let f = force;
+    for (;;) {
+      const r = await refreshQuotes(wanted.current, token, { force: f, onProgress: (d, t) => setBusy(`Atualizando ${d}/${t}…`) });
+      setQuotes(loadCache());
+      if (r.stopped) setNote(r.stopped);
+      else if (r.failed.length) setNote(`Sem cotação agora para: ${r.failed.join(', ')}.`);
+      if (pending.current === null || r.stopped) break;
+      f = pending.current; pending.current = null;
+    }
+    pending.current = null;
+    setBusy(null); running.current = false;
+  }, [token]);
+  useEffect(() => { void refresh(); }, [refresh, group, q, visible]);
 
   const saveKey = async () => {
     const k = keyInput.trim();
@@ -170,8 +186,8 @@ export function MarketsPage() {
         </div>
         {!q && (
           <div className="-mx-1 flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label="Grupos">
-            {GROUPS.map((g) => (
-              <button key={g.id} type="button" role="tab" aria-selected={group === g.id} onClick={() => setGroup(g.id)}
+            {[...GROUPS, { id: 'exemplo', label: 'Carteira exemplo' }].map((g) => (
+              <button key={g.id} type="button" role="tab" aria-selected={group === g.id} onClick={() => setGroup(g.id)} data-testid={`mk-tab-${g.id}`}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs ring-1 ${group === g.id ? 'bg-gold-500 text-ink-950 ring-gold-500' : 'text-mist-300 ring-white/10'}`}>{g.label}</button>
             ))}
           </div>
@@ -184,6 +200,7 @@ export function MarketsPage() {
         {note && <p className="text-xs text-gold-300" role="alert">{note}</p>}
       </div>
 
+      {group === 'exemplo' && !q && <ExampleView quotes={quotes.q} />}
       <div className="flex flex-col gap-3" data-testid="mk-list">
         {(q ? ['Resultados'] : sectors).map((sec) => {
           const items = q ? visible : visible.filter((i) => i.sector === sec);
@@ -214,5 +231,41 @@ export function MarketsPage() {
 
       <p className="text-[11px] text-mist-500">Lista objetiva das maiores e mais negociadas empresas e fundos — não é recomendação de compra ou venda. Tipos: {Object.values(KIND_LABEL).join(', ')}. Cotações: brapi.dev (fontes públicas, sem vínculo com a B3, com atraso e sem garantia), com a sua chave pessoal, consultadas direto deste aparelho e guardadas só nele. Rentabilidade passada não garante resultado futuro.</p>
     </section>
+  );
+}
+
+/** Carteira exemplo em 6 classes, com o % ideal de cada ativo e as cotações atuais. */
+function ExampleView({ quotes }: { quotes: Record<string, Quote> }) {
+  const macro = useMacro();
+  const [done, setDone] = useState(false);
+  const bond = (key: string) => { const [type, year] = key.split('|'); return (macro.data?.tesouro.bonds ?? []).find((b) => b.type === type && b.maturity.startsWith(year)); };
+  return (
+    <div className="flex flex-col gap-3" data-testid="mk-example">
+      <div className="card flex flex-col gap-3 p-4 ring-gold-500/30">
+        <h2 className="flex items-center gap-2 text-base font-semibold"><PieChart size={16} className="text-gold-400" aria-hidden />Carteira exemplo: diversificada em 6 classes</h2>
+        <p className="text-xs text-mist-400">Estrutura inspirada em carteiras públicas de educadores financeiros, para estudo: quanto vai para cada classe e quais ativos. Dentro de cada classe, o peso é igual entre os ativos (% ideal do ativo = % da classe ÷ nº de ativos). <b>Não é recomendação</b> — use para entender diversificação e montar a sua.</p>
+        <div className="flex h-3 overflow-hidden rounded-full" role="img" aria-label={EXAMPLE.map((g) => `${g.label} ${g.pct}%`).join(', ')}>
+          {EXAMPLE.map((g, i) => <div key={g.id} style={{ width: `${g.pct}%` }} className={['bg-gold-400', 'bg-gain-500', 'bg-sky-500', 'bg-violet-500', 'bg-pink-500', 'bg-orange-500'][i]} />)}
+        </div>
+        <ul className="grid grid-cols-2 gap-1 text-xs sm:grid-cols-3">{EXAMPLE.map((g, i) => <li key={g.id} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-sm ${['bg-gold-400', 'bg-gain-500', 'bg-sky-500', 'bg-violet-500', 'bg-pink-500', 'bg-orange-500'][i]}`} />{g.label}: <b>{g.pct}%</b> <span className="text-mist-500">({g.assets.length} ativos)</span></li>)}</ul>
+        <button type="button" className="btn self-start" data-testid="mk-use-classes" onClick={() => { save('mxrf:classTargets', Object.fromEntries(EXAMPLE.map((g) => [g.id, g.pct]))); save('mxrf:contribMode', 'classes'); setDone(true); }}>Usar essa divisão por classes na minha Carteira</button>
+        {done && <p className="text-xs text-gain-400" role="status">Pronto: na <a className="underline" href="#/carteira">Carteira</a>, o Aporte do mês agora usa a divisão por classes (você pode mudar os %). Só entram os ativos que você mesmo tiver.</p>}
+      </div>
+      {EXAMPLE.map((g) => (
+        <div key={g.id} className="card px-4 py-2" data-testid={`mk-ex-${g.id}`}>
+          <h2 className="pt-1 text-xs font-semibold uppercase tracking-wide text-mist-400">{g.label} · {g.pct}% · {fmtPct(g.pct / 100 / g.assets.length, 2)} cada</h2>
+          {g.note && <p className="text-[11px] text-mist-500">{g.note}</p>}
+          {g.id === 'tesouro' ? (
+            <ul>{g.assets.map((a) => { const b = bond(a.symbol); return (
+              <li key={a.symbol} className="flex items-center gap-3 border-t border-white/5 py-2.5 first:border-t-0">
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-mist-100">{a.name}</p><p className="text-[11px] text-mist-500">Título público · ideal {fmtPct(g.pct / 100 / g.assets.length, 2)}</p></div>
+                <div className="text-right"><p className="num text-sm text-mist-100">{b?.buyPrice ? brl(b.buyPrice) : '—'}</p><p className="text-[11px] text-mist-400">{b?.buyRate ? `taxa ${/Selic/.test(b.type) ? 'Selic + ' : /IPCA|Renda/.test(b.type) ? 'IPCA + ' : ''}${fmtPct(b.buyRate / 100, 2)}` : 'sem dados hoje'}</p></div>
+              </li>); })}</ul>
+          ) : (
+            <ul>{g.assets.map((a) => <Row key={a.symbol} q={quotes[a.symbol]} ideal={g.pct / 100 / g.assets.length} item={{ symbol: a.symbol, name: a.name, sector: a.original ? `${a.original} nos EUA` : g.label, region: g.id === 'acoes' || g.id === 'fiis' ? 'BR' : 'GLOBAL', kind: g.id === 'fiis' ? 'FII' : g.id === 'acoes' ? 'ACAO' : g.id === 'exterior' ? 'BDR' : 'ETF' }} />)}</ul>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

@@ -365,3 +365,42 @@ test('site: números separam os milhares enquanto digita e mostram o valor por e
   await expect(price).toHaveValue('9,5');
   await expect(page.getByTestId('magic-shares')).toContainText('190'); // 2 × 9,50 ÷ 0,10
 });
+
+test('site: Carteira exemplo em 6 classes e Divisão por classes na Carteira (% ideal e Comprar?)', async ({ page }) => {
+  await page.route('https://brapi.dev/**', (route) => {
+    const t = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop()!);
+    return route.fulfill({ json: brapiQuote(t, t === 'AAPL34' ? 50 : t === 'PETR4' ? 40.5 : 10), headers: { 'access-control-allow-origin': '*' } });
+  });
+  await page.goto('./#/mercados');
+  await page.getByTestId('mk-key').fill('minha-chave-pessoal-123');
+  await page.getByTestId('mk-save').click();
+  await page.getByTestId('mk-tab-exemplo').click();
+  const ex = page.getByTestId('mk-example');
+  for (const label of ['Ações Brasil: 25%', 'Fundos imobiliários: 25%', 'Tesouro Direto: 25%', 'Ações exterior: 20%', 'ETFs internacionais: 3%', 'Criptomoedas: 2%']) await expect(ex).toContainText(label);
+  await expect(page.getByTestId('mk-ex-acoes')).toContainText('1,47% cada');
+  await expect(page.getByTestId('mk-ex-fiis')).toContainText('1,92% cada');
+  await expect(page.getByTestId('mk-ex-exterior').locator('li[data-symbol=MSFT34]')).toContainText('R$ 10,00');
+  await expect(page.getByTestId('mk-ex-exterior')).toContainText('MSFT nos EUA');
+  await expect(page.getByTestId('mk-ex-tesouro')).toContainText('Tesouro Selic 2031');
+  await page.getByTestId('mk-use-classes').click();
+
+  // Carteira: adicionar um BDR que ainda não tinha cotação no aparelho (busca na hora)
+  await page.goto('./#/carteira');
+  await page.getByTestId('pf-ticker').fill('PETR4');
+  await page.getByTestId('pf-shares').fill('10');
+  await page.getByRole('button', { name: 'Adicionar' }).click();
+  await expect(page.locator('[data-testid=pf-table] tbody tr')).toHaveCount(1);
+  await page.getByTestId('pf-ticker').fill('AAPL34');
+  await page.getByTestId('pf-shares').fill('2');
+  await page.getByRole('button', { name: 'Adicionar' }).click();
+  await expect(page.locator('[data-testid=pf-table] tbody tr')).toHaveCount(2);
+  const ap = page.getByTestId('pf-contrib');
+  await expect(ap.getByTestId('ap-classes')).toBeVisible(); // veio do exemplo
+  await ap.getByTestId('ap-fixed').fill('1.000');
+  // PETR4 = 405 (ações 25%), AAPL34 = 100 (exterior 20%), renda fixa 1.000 (25%) → alvos 35,7% / 28,6% / 35,7%
+  await expect(ap.locator('tr[data-ticker=PETR4]')).toContainText('Ações Brasil');
+  await expect(ap.locator('tr[data-ticker=AAPL34]')).toContainText('Ações exterior');
+  await expect(ap.locator('tr[data-ticker=AAPL34]').getByTestId('ap-buy-flag')).toHaveText('Sim');
+  await expect(ap.locator('tr[data-ticker=renda-fixa]')).toContainText('Não');
+  await expect(ap.getByTestId('ap-summary')).toContainText('Total a comprar');
+});
