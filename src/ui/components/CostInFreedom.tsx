@@ -4,6 +4,7 @@ import { daysLabel, freedomDelayDays } from '../../engine/freedom';
 import { fmtBRL } from '../format';
 import { go } from '../route';
 import { num, useFreedomPlan } from '../freedom-plan';
+import { AmountWords, NumInput } from './NumInput';
 
 /** "Quanto isso custa em liberdade?": traduz um gasto em dias a mais até a liberdade financeira. */
 export function CostInFreedom({ compact = false }: { compact?: boolean }) {
@@ -26,7 +27,7 @@ export function CostInFreedom({ compact = false }: { compact?: boolean }) {
         <p className="text-xs text-mist-400">Antes de comprar, veja o preço na moeda que importa: o tempo até seus investimentos pagarem todas as suas contas.</p>
       </div>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-xs text-mist-400">Valor (R$)<input className="input num text-lg" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Ex.: 3.000" data-testid="cost-value" /></label>
+        <label className="flex flex-1 flex-col gap-1 text-xs text-mist-400">Valor (R$)<NumInput className="input num text-lg" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Ex.: 3.000" data-testid="cost-value" /><AmountWords value={value} /></label>
         <div className="seg" role="group" aria-label="Tipo de gasto">
           <button type="button" aria-pressed={!monthly} onClick={() => setMonthly(false)}>Uma vez</button>
           <button type="button" aria-pressed={monthly} onClick={() => setMonthly(true)} data-testid="cost-monthly">Todo mês</button>

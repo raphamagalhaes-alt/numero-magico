@@ -6,6 +6,7 @@ import { go } from '../route';
 import { fmtCompactBRL, fmtDecimal, fmtPct } from '../format';
 import { loadRaw, save } from '../storage';
 import { InfoTip } from '../components/InfoTip';
+import { AmountWords, NumInput } from '../components/NumInput';
 
 type SortKey = 'ticker' | 'close' | 'chg12m' | 'avgVolume21' | 'vol12m' | 'dy12m' | 'dyAnnualizedLast' | 'pvp' | 'maxDrawdown12m';
 const COLS: { key: SortKey; label: string; help: string; fii?: boolean }[] = [
@@ -109,10 +110,10 @@ export function ExplorerPage() {
               <span className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-mist-500" aria-hidden />
                 <input data-testid="exp-search" className="input pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ex.: MXRF, PETR, logística" /></span>
             </label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Liquidez mín. (R$/dia)<input className="input num" inputMode="numeric" value={minLiq} onChange={(e) => setMinLiq(e.target.value)} /></label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Volatilidade máx. (%)<input className="input num" inputMode="decimal" value={maxVol} onChange={(e) => setMaxVol(e.target.value)} /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Liquidez mín. (R$/dia)<NumInput className="input num" inputMode="numeric" value={minLiq} onChange={(e) => setMinLiq(e.target.value)} /><AmountWords value={minLiq} /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Volatilidade máx. (%)<NumInput className="input num" inputMode="decimal" value={maxVol} onChange={(e) => setMaxVol(e.target.value)} /></label>
             {hasDiv && <label className="flex flex-col gap-1 text-xs text-mist-400">DY 12m mín. (%)<input data-testid="exp-mindy" className="input num" inputMode="decimal" value={minDy} onChange={(e) => setMinDy(e.target.value)} /></label>}
-            {isFund && <label className="flex flex-col gap-1 text-xs text-mist-400">P/VP máx.<input className="input num" inputMode="decimal" value={maxPvp} onChange={(e) => setMaxPvp(e.target.value)} /></label>}
+            {isFund && <label className="flex flex-col gap-1 text-xs text-mist-400">P/VP máx.<NumInput className="input num" inputMode="decimal" value={maxPvp} onChange={(e) => setMaxPvp(e.target.value)} /></label>}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-mist-400">
             <span data-testid="exp-count">{rows.length} resultados</span>

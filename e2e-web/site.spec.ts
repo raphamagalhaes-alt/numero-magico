@@ -336,3 +336,32 @@ test('site: Meu perfil — resumo, avatar no topo, perfil de investidor e cópia
   await expect(other.getByTestId('pr-quiz-result')).toHaveText('Moderado');
   await ctx.close();
 });
+
+test('site: números separam os milhares enquanto digita e mostram o valor por extenso', async ({ page }) => {
+  await page.goto('./#/liberdade');
+  const cap = page.getByTestId('fr-extra-capital');
+  await cap.fill('');
+  await cap.pressSequentially('2000000');
+  await expect(cap).toHaveValue('2.000.000');
+  await expect(cap.locator('xpath=..').getByTestId('amount-words')).toHaveText('= 2 milhões');
+  // apagar um dígito reagrupa
+  await cap.press('Backspace');
+  await expect(cap).toHaveValue('200.000');
+  // conta com centavos
+  const luz = page.getByLabel('Valor de Luz');
+  await luz.fill('');
+  await luz.pressSequentially('189,90');
+  await expect(luz).toHaveValue('189,90');
+  // simulador: meta digitada tecla a tecla e preço com ponto do teclado do celular
+  await page.goto('./#/simulador');
+  const goal = page.getByTestId('in-goal');
+  await goal.fill('');
+  await goal.pressSequentially('15000');
+  await expect(goal).toHaveValue('15.000');
+  await expect(page.getByText('= 15 mil')).toBeVisible();
+  const price = page.getByTestId('in-price');
+  await price.fill('');
+  await price.pressSequentially('9.5');
+  await expect(price).toHaveValue('9,5');
+  await expect(page.getByTestId('magic-shares')).toContainText('190'); // 2 × 9,50 ÷ 0,10
+});

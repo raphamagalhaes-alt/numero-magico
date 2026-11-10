@@ -6,6 +6,7 @@ import { formFromParams, parseBR } from '../form';
 import { demoParams } from '../../scenarios/defaults';
 import { save } from '../storage';
 import { TERMS_KEY, TERMS_VERSION } from '../legal';
+import { AmountWords, NumInput } from './NumInput';
 
 export const ONBOARD_KEY = 'mxrf:onboarded';
 
@@ -42,8 +43,8 @@ export function Onboarding({ onDone, termsOnly = false }: { onDone: (ticker: str
         <div className="mt-4 flex flex-col gap-3">
           {!termsOnly && <>
           <label className="flex flex-col gap-1 text-xs text-mist-400">Como quer ser chamado(a)? (opcional)<input className="input" value={nick} maxLength={30} onChange={(e) => setNick(e.target.value)} placeholder="Ex.: Rapha" data-testid="ob-name" /></label>
-          <label className="flex flex-col gap-1 text-xs text-mist-400">1. Quanto você quer de renda por mês? (R$)<input className="input num" value={goal} onChange={(e) => setGoal(e.target.value)} data-testid="ob-goal" /></label>
-          <label className="flex flex-col gap-1 text-xs text-mist-400">2. Quanto pode investir por mês? (R$)<input className="input num" value={contrib} onChange={(e) => setContrib(e.target.value)} data-testid="ob-contrib" /></label>
+          <label className="flex flex-col gap-1 text-xs text-mist-400">1. Quanto você quer de renda por mês? (R$)<NumInput className="input num" value={goal} onChange={(e) => setGoal(e.target.value)} data-testid="ob-goal" /><AmountWords value={goal} /></label>
+          <label className="flex flex-col gap-1 text-xs text-mist-400">2. Quanto pode investir por mês? (R$)<NumInput className="input num" value={contrib} onChange={(e) => setContrib(e.target.value)} data-testid="ob-contrib" /><AmountWords value={contrib} /></label>
           <label className="flex flex-col gap-1 text-xs text-mist-400">3. Qual fundo quer simular?
             <select className="input" value={ticker} onChange={(e) => setTicker(e.target.value)} data-testid="ob-ticker">
               <option value={DEFAULT_TICKER}>{DEFAULT_TICKER} — exemplo didático</option>

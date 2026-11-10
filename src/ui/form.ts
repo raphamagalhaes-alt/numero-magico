@@ -27,6 +27,7 @@ export function parseBR(raw: string): string | null {
   let s = raw.trim().replace(/^R\$\s*/i, '').replace(/\s|%/g, '');
   if (!s) return null;
   if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, ''); // 2.000 = dois mil (separador de milhar)
   if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
   return s;
 }

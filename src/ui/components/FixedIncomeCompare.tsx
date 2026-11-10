@@ -5,6 +5,7 @@ import { useMacro } from '../data';
 import { fmtBRL, fmtDecimal } from '../format';
 import { parseBR } from '../form';
 import { InfoTip } from './InfoTip';
+import { NumInput } from './NumInput';
 
 const longest = (bonds: { type: string; maturity: string; buyRate: number | null }[], type: string) =>
   bonds.filter((b) => b.type === type && b.buyRate !== null).sort((a, b) => b.maturity.localeCompare(a.maturity))[0];
@@ -45,9 +46,9 @@ export function FixedIncomeCompare({ result }: { result: SimulationResult }) {
         <InfoTip text="Aplica exatamente o mesmo dinheiro nas mesmas datas (investimento inicial e aportes) em cada alternativa, com taxa constante por 30 anos, IR regressivo por aporte e custódia do Tesouro. Taxas de hoje: Banco Central (CDI/Selic) e Tesouro Direto (títulos mais longos de cada tipo). Taxas futuras vão mudar." /></h2>
       {m.error && <p className="text-xs text-loss-400">Taxas oficiais indisponíveis ({m.error}). Informe o CDI manualmente.</p>}
       <div className="card grid grid-cols-3 gap-3 p-4">
-        <label className="flex flex-col gap-1 text-xs text-mist-400">CDI (% a.a.){cdiNow !== null && <span className="text-[11px] text-mist-500">oficial: {fmtDecimal(cdiNow, 2)}%</span>}<input className="input num" placeholder={cdiNow !== null ? fmtDecimal(cdiNow, 2) : ''} value={cdi} onChange={(e) => setCdi(e.target.value)} /></label>
-        <label className="flex flex-col gap-1 text-xs text-mist-400">CDB (% do CDI)<span className="text-[11px] text-mist-500">&nbsp;</span><input className="input num" value={pctCdb} onChange={(e) => setPctCdb(e.target.value)} /></label>
-        <label className="flex flex-col gap-1 text-xs text-mist-400">LCI/LCA (% do CDI)<span className="text-[11px] text-mist-500">&nbsp;</span><input className="input num" value={pctLci} onChange={(e) => setPctLci(e.target.value)} /></label>
+        <label className="flex flex-col gap-1 text-xs text-mist-400">CDI (% a.a.){cdiNow !== null && <span className="text-[11px] text-mist-500">oficial: {fmtDecimal(cdiNow, 2)}%</span>}<NumInput className="input num" placeholder={cdiNow !== null ? fmtDecimal(cdiNow, 2) : ''} value={cdi} onChange={(e) => setCdi(e.target.value)} /></label>
+        <label className="flex flex-col gap-1 text-xs text-mist-400">CDB (% do CDI)<span className="text-[11px] text-mist-500">&nbsp;</span><NumInput className="input num" value={pctCdb} onChange={(e) => setPctCdb(e.target.value)} /></label>
+        <label className="flex flex-col gap-1 text-xs text-mist-400">LCI/LCA (% do CDI)<span className="text-[11px] text-mist-500">&nbsp;</span><NumInput className="input num" value={pctLci} onChange={(e) => setPctLci(e.target.value)} /></label>
       </div>
       <div className="card overflow-x-auto">
         <table className="num w-full text-xs">

@@ -5,6 +5,7 @@ import { fmtBRL, fmtPct } from '../format';
 import { loadRaw, save } from '../storage';
 import { loadCache } from '../../markets/quotes';
 import { currentStorm } from '../storm-state';
+import { NumInput } from '../components/NumInput';
 
 const KEY = 'mxrf:journal';
 type Action = 'Comprar' | 'Vender' | 'Manter' | 'Esperar';
@@ -81,7 +82,7 @@ export function JournalPage() {
           <label className="flex flex-col gap-1 text-xs text-mist-400">Decisão
             <select className="input" value={f.action} onChange={(e) => setF({ ...f, action: e.target.value as Action })} data-testid="jr-action">{(['Comprar', 'Vender', 'Manter', 'Esperar'] as Action[]).map((a) => <option key={a}>{a}</option>)}</select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-mist-400">Preço (opcional)<input className="input num" inputMode="decimal" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} placeholder={priceNow(f.ticker.trim().toUpperCase())?.toFixed(2).replace('.', ',') ?? 'automático'} /></label>
+          <label className="flex flex-col gap-1 text-xs text-mist-400">Preço (opcional)<NumInput className="input num" inputMode="decimal" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} placeholder={priceNow(f.ticker.trim().toUpperCase())?.toFixed(2).replace('.', ',') ?? 'automático'} /></label>
           <label className="flex flex-col gap-1 text-xs text-mist-400">Revisar em
             <select className="input" value={f.revisit} onChange={(e) => setF({ ...f, revisit: e.target.value })}><option value="1">1 mês</option><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">1 ano</option></select>
           </label>

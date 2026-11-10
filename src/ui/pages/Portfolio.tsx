@@ -9,6 +9,8 @@ import { go } from '../route';
 import { loadRaw, save } from '../storage';
 import { AlertChannels } from '../components/AlertChannels';
 import { FixedIncomeCheck, IncomeCalendar } from '../components/IncomeInsights';
+import { AmountWords, NumInput } from '../components/NumInput';
+import { parseNum } from '../numfmt';
 
 export interface Position { ticker: string; shares: number }
 export const POS_KEY = 'mxrf:positions';
@@ -73,7 +75,7 @@ function MonthlyContribution({ positions, assets }: { positions: Position[]; ass
         <h2 id="ap-title" className="flex items-center gap-2 text-base font-semibold"><PiggyBank size={16} className="text-gold-400" aria-hidden />Aporte do mês</h2>
         <p className="text-xs text-mist-400">Diga quanto vai investir e a divisão que <b>você</b> quer (pesos). Calculamos quantas cotas inteiras comprar de cada um para chegar mais perto dessa divisão, sem vender nada.</p>
       </div>
-      <label className="flex max-w-xs flex-col gap-1 text-xs text-mist-400">Quanto vou investir agora (R$)<input className="input num" inputMode="decimal" value={cash} onChange={(e) => setCash(e.target.value)} data-testid="ap-cash" /></label>
+      <label className="flex max-w-xs flex-col gap-1 text-xs text-mist-400">Quanto vou investir agora (R$)<NumInput className="input num" inputMode="decimal" value={cash} onChange={(e) => setCash(e.target.value)} data-testid="ap-cash" /><AmountWords value={cash} /></label>
       <div className="overflow-x-auto">
         <table className="num w-full text-xs">
           <thead><tr className="text-mist-400">{['Ativo', 'Peso que eu quero', 'Hoje', 'Alvo', 'Comprar', 'Custo', 'Depois'].map((h, i) => <th key={h} scope="col" className={`px-2 py-1.5 font-medium ${i ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead>
@@ -84,7 +86,7 @@ function MonthlyContribution({ positions, assets }: { positions: Position[]; ass
             return (
               <tr key={h.ticker} className="border-t border-white/5" data-ticker={h.ticker}>
                 <th scope="row" className="px-2 py-1.5 text-left font-medium">{h.ticker}</th>
-                <td className="px-2 py-1.5 text-right"><input className="input num w-16 !py-1 text-right" inputMode="decimal" aria-label={`Peso de ${h.ticker}`} value={targets[h.ticker] ?? '1'} onChange={(e) => setTargets((t) => ({ ...t, [h.ticker]: e.target.value }))} /></td>
+                <td className="px-2 py-1.5 text-right"><NumInput className="input num w-16 !py-1 text-right" inputMode="decimal" aria-label={`Peso de ${h.ticker}`} value={targets[h.ticker] ?? '1'} onChange={(e) => setTargets((t) => ({ ...t, [h.ticker]: e.target.value }))} /></td>
                 <td className="px-2 py-1.5 text-right">{totalNow ? fmtPct(h.shares * h.price / totalNow, 0) : '—'}</td>
                 <td className="px-2 py-1.5 text-right">{tsum ? fmtPct(h.target / tsum, 0) : '—'}</td>
                 <td className="px-2 py-1.5 text-right font-semibold text-gold-300">{buy ? `${fmtInt(buy.shares)} cota${buy.shares > 1 ? 's' : ''}` : '—'}</td>
@@ -115,7 +117,7 @@ export function PortfolioPage() {
   const add = (e: React.FormEvent) => {
     e.preventDefault();
     const t = ticker.trim().toUpperCase();
-    const n = Number(shares);
+    const n = parseNum(shares) ?? NaN;
     if (!assets.some((a) => a.ticker === t)) return setErr('Ticker não encontrado entre os ativos negociados.');
     if (!Number.isInteger(n) || n < 0) return setErr('Informe um número inteiro de cotas.');
     setErr(null);
@@ -127,7 +129,7 @@ export function PortfolioPage() {
     const perm = await Notification.requestPermission();
     if (perm === 'granted' && alerts.length) new Notification('Novos rendimentos anunciados', { body: alerts.map((a) => `${a.ticker}: R$ ${fmtDecimal(a.amount, 3)}`).join(' · ') });
   };
-  const k = Math.max(1, Math.floor(Number(desired)) || 1);
+  const k = Math.max(1, Math.floor(parseNum(desired) ?? 1) || 1);
   let totalValue = 0, totalIncome = 0;
 
   return (
@@ -150,9 +152,9 @@ export function PortfolioPage() {
       <form onSubmit={add} className="card grid grid-cols-2 gap-3 p-4 md:grid-cols-5" aria-label="Adicionar posição">
         <label className="flex flex-col gap-1 text-xs text-mist-400">Ticker<input className="input uppercase" list="pf-tickers" value={ticker} onChange={(e) => setTicker(e.target.value)} data-testid="pf-ticker" /></label>
         <datalist id="pf-tickers">{assets.filter((a) => a.cls === 'FII' || a.cls === 'FIAGRO' || a.cls === 'ACAO').slice(0, 1200).map((a) => <option key={a.ticker} value={a.ticker}>{a.name}</option>)}</datalist>
-        <label className="flex flex-col gap-1 text-xs text-mist-400">Cotas que tenho<input className="input num" inputMode="numeric" value={shares} onChange={(e) => setShares(e.target.value)} data-testid="pf-shares" /></label>
+        <label className="flex flex-col gap-1 text-xs text-mist-400">Cotas que tenho<NumInput className="input num" decimals={false} value={shares} onChange={(e) => setShares(e.target.value)} data-testid="pf-shares" /></label>
         <div className="flex items-end"><button className="btn btn-gold w-full" type="submit"><Plus size={14} aria-hidden />Adicionar</button></div>
-        <label className="flex flex-col gap-1 text-xs text-mist-400 md:col-start-5">Cotas novas/mês desejadas<input className="input num" inputMode="numeric" value={desired} onChange={(e) => setDesired(e.target.value)} /></label>
+        <label className="flex flex-col gap-1 text-xs text-mist-400 md:col-start-5">Cotas novas/mês desejadas<NumInput className="input num" decimals={false} value={desired} onChange={(e) => setDesired(e.target.value)} /></label>
         {err && <p className="col-span-full text-xs text-loss-400" role="alert">{err}</p>}
       </form>
       {positions.length > 0 && (

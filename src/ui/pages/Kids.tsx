@@ -4,6 +4,7 @@ import { kidPlan, type KidGoal } from '../../engine/kids';
 import { fmtBRL, fmtPct } from '../format';
 import { loadRaw, save } from '../storage';
 import { num, useFreedomPlan } from '../freedom-plan';
+import { AmountWords, NumInput } from '../components/NumInput';
 
 const KEY = 'mxrf:kids';
 const GOALS = ['Faculdade', 'Primeiro carro', 'Intercâmbio', 'Entrada da casa própria', 'Começo da vida adulta'];
@@ -96,10 +97,10 @@ export function KidsPage() {
             <label className="flex flex-col gap-1 text-xs text-mist-400">Para quê
               <select className="input" value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })}>{GOALS.map((g) => <option key={g}>{g}</option>)}</select>
             </label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Valor da meta (R$ de hoje)<input className="input num" inputMode="decimal" value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} data-testid="kid-target" /></label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Com quantos anos<input className="input num" inputMode="numeric" value={form.atAge} onChange={(e) => setForm({ ...form, atAge: e.target.value })} data-testid="kid-age" /></label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Guardar por mês (R$)<input className="input num" inputMode="decimal" value={form.monthly} onChange={(e) => setForm({ ...form, monthly: e.target.value })} data-testid="kid-monthly" /></label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Já guardado (R$)<input className="input num" inputMode="decimal" value={form.have} onChange={(e) => setForm({ ...form, have: e.target.value })} data-testid="kid-have" /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Valor da meta (R$ de hoje)<NumInput className="input num" inputMode="decimal" value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} data-testid="kid-target" /><AmountWords value={form.target} /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Com quantos anos<NumInput className="input num" inputMode="numeric" value={form.atAge} onChange={(e) => setForm({ ...form, atAge: e.target.value })} data-testid="kid-age" /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Guardar por mês (R$)<NumInput className="input num" inputMode="decimal" value={form.monthly} onChange={(e) => setForm({ ...form, monthly: e.target.value })} data-testid="kid-monthly" /><AmountWords value={form.monthly} /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Já guardado (R$)<NumInput className="input num" inputMode="decimal" value={form.have} onChange={(e) => setForm({ ...form, have: e.target.value })} data-testid="kid-have" /><AmountWords value={form.have} /></label>
           </div>
           {err && <p className="text-xs text-loss-400" role="alert">{err}</p>}
           <div className="flex gap-2">

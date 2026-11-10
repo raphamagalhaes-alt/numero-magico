@@ -9,6 +9,7 @@ import { FREEDOM_KEY, loadFreedom, num, useFreedomPlan } from '../freedom-plan';
 import { POS_KEY, TARGET_KEY, loadPositions, type Position } from './Portfolio';
 import { CostInFreedom } from '../components/CostInFreedom';
 import { go } from '../route';
+import { AmountWords, NumInput } from '../components/NumInput';
 
 export const PAYDAY_KEY = 'mxrf:payday';
 interface Done { ym: string; date: string; save: number; toReserve: number; toInvest: number }
@@ -150,16 +151,16 @@ export function MonthPage() {
         <form className="card flex flex-col gap-3 p-5" data-testid="mo-setup" onSubmit={(e) => { e.preventDefault(); if (!(num(s.salary) > 0)) return setMsg('Informe o salário líquido.'); setS((x) => ({ ...x, configured: true, lastSalary: x.lastSalary || x.salary })); setEditing(false); setMsg(null); }}>
           <h2 className="text-base font-semibold">Seu salário e suas regras</h2>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Salário líquido (R$)<input className="input num" inputMode="decimal" value={s.salary} onChange={(e) => setS({ ...s, salary: e.target.value })} data-testid="mo-salary" /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Salário líquido (R$)<NumInput className="input num" inputMode="decimal" value={s.salary} onChange={(e) => setS({ ...s, salary: e.target.value })} data-testid="mo-salary" /><AmountWords value={s.salary} /></label>
             <label className="flex flex-col gap-1 text-xs text-mist-400">Quando cai
               <select className="input" value={s.rule.kind === 'util' ? `u${s.rule.n}` : `d${s.rule.day}`} onChange={(e) => { const v = e.target.value; setS({ ...s, rule: v[0] === 'u' ? { kind: 'util', n: Number(v.slice(1)) } : { kind: 'dia', day: Number(v.slice(1)) } }); }} data-testid="mo-rule">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => <option key={`u${n}`} value={`u${n}`}>{n}º dia útil</option>)}
                 {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => <option key={`d${d}`} value={`d${d}`}>Todo dia {d}</option>)}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Guardar (% do salário)<input className="input num" inputMode="decimal" value={s.pct} onChange={(e) => setS({ ...s, pct: e.target.value })} data-testid="mo-pct" /></label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Reserva de emergência (meses de contas)<input className="input num" inputMode="numeric" value={s.reserveMonths} onChange={(e) => setS({ ...s, reserveMonths: e.target.value })} /></label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Já tenho de reserva (R$)<input className="input num" inputMode="decimal" value={s.reserveHave} onChange={(e) => setS({ ...s, reserveHave: e.target.value })} data-testid="mo-reserve-have" /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Guardar (% do salário)<NumInput className="input num" inputMode="decimal" value={s.pct} onChange={(e) => setS({ ...s, pct: e.target.value })} data-testid="mo-pct" /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Reserva de emergência (meses de contas)<NumInput className="input num" inputMode="numeric" value={s.reserveMonths} onChange={(e) => setS({ ...s, reserveMonths: e.target.value })} /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Já tenho de reserva (R$)<NumInput className="input num" inputMode="decimal" value={s.reserveHave} onChange={(e) => setS({ ...s, reserveHave: e.target.value })} data-testid="mo-reserve-have" /><AmountWords value={s.reserveHave} /></label>
             <label className="flex flex-col gap-1 text-xs text-mist-400">Enquanto a reserva não completa
               <select className="input" value={String(s.reserveShare)} onChange={(e) => setS({ ...s, reserveShare: Number(e.target.value) })}><option value="1">Tudo para a reserva</option><option value="0.5">Metade reserva, metade investe</option><option value="0">Investir tudo (já tenho reserva)</option></select>
             </label>

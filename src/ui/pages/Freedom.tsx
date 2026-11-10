@@ -7,6 +7,7 @@ import { loadRaw, save } from '../storage';
 import { FREEDOM_DEFAULT, FREEDOM_KEY, num, useFreedomPlan, type FreedomState } from '../freedom-plan';
 import { FamilyGoals } from '../components/FamilyGoals';
 import { CostInFreedom } from '../components/CostInFreedom';
+import { AmountWords, NumInput } from '../components/NumInput';
 
 const KEY = FREEDOM_KEY;
 type State = FreedomState;
@@ -21,6 +22,13 @@ const when = (months: number | null) => {
   const span = y ? `${y} ano${y > 1 ? 's' : ''}${m ? ` e ${mm(m)}` : ''}` : mm(m);
   return `${d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '')} (em ${span})`;
 };
+
+/** Valor de uma conta: texto próprio durante a edição (permite centavos, como 89,90). */
+function BillAmount({ amount, name, onChange }: { amount: number; name: string; onChange: (v: number) => void }) {
+  const [text, setText] = useState(() => String(amount).replace('.', ','));
+  useEffect(() => { if (num(text) !== amount) setText(String(amount).replace('.', ',')); }, [amount]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <NumInput className="input num w-24 !py-1.5 text-right" aria-label={`Valor de ${name}`} value={text} onChange={(e) => { setText(e.target.value); onChange(num(e.target.value)); }} />;
+}
 
 export function FreedomPage() {
   const [s, setS] = useState<State>(() => ({ ...DEFAULT, ...loadRaw<Partial<State>>(KEY, {}) }));
@@ -72,7 +80,7 @@ export function FreedomPage() {
                 <li key={i} className="flex items-center gap-2">
                   {ok ? <CheckCircle2 size={16} className="shrink-0 text-gain-400" aria-label="paga" /> : <Circle size={16} className="shrink-0 text-mist-600" aria-label="ainda não" />}
                   <input className="input min-w-0 flex-1 !py-1.5" value={b.name} aria-label="Nome da conta" onChange={(e) => editBill(i, { name: e.target.value })} />
-                  <input className="input num w-24 !py-1.5 text-right" inputMode="decimal" aria-label={`Valor de ${b.name}`} value={String(b.amount).replace('.', ',')} onChange={(e) => editBill(i, { amount: Math.max(0, num(e.target.value)) })} />
+                  <BillAmount amount={b.amount} name={b.name} onChange={(v) => editBill(i, { amount: Math.max(0, v) })} />
                   <button type="button" className="btn !px-1.5 !py-1" onClick={() => moveBill(i, -1)} aria-label={`Subir ${b.name}`}><ArrowUp size={12} aria-hidden /></button>
                   <button type="button" className="btn !px-1.5 !py-1" onClick={() => moveBill(i, 1)} aria-label={`Descer ${b.name}`}><ArrowDown size={12} aria-hidden /></button>
                   <button type="button" className="btn !px-1.5 !py-1" onClick={() => setS((x) => ({ ...x, bills: x.bills.filter((_, k) => k !== i) }))} aria-label={`Remover ${b.name}`}><Trash2 size={12} aria-hidden /></button>
@@ -90,10 +98,10 @@ export function FreedomPage() {
           <h2 className="text-base font-semibold">Seus números</h2>
           <p className="text-xs text-mist-400">Da sua Carteira: patrimônio <b>{brl(pf.value)}</b> · renda estimada <b>{brl(pf.income)}/mês</b>.{otherCapitalIncome > 0 ? <> Outros investimentos rendendo {fmtPct(rate, 1)}: <b>{brl(otherCapitalIncome)}/mês</b>.</> : null}</p>
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Outras rendas passivas/mês (R$)<input className="input num" inputMode="decimal" value={s.extraIncome} onChange={set('extraIncome')} data-testid="fr-extra-income" /></label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Outros investimentos (R$)<input className="input num" inputMode="decimal" value={s.extraCapital} onChange={set('extraCapital')} data-testid="fr-extra-capital" /></label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Quanto invisto por mês (R$)<input className="input num" inputMode="decimal" value={s.contribution} onChange={set('contribution')} data-testid="fr-contribution" /></label>
-            <label className="flex flex-col gap-1 text-xs text-mist-400">Rentabilidade acima da inflação (% ao ano)<input className="input num" inputMode="decimal" placeholder={ipcaPlus ? String((ipcaPlus.rate * 100).toFixed(2)).replace('.', ',') : '6'} value={s.rate} onChange={set('rate')} data-testid="fr-rate" /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Outras rendas passivas/mês (R$)<NumInput className="input num" inputMode="decimal" value={s.extraIncome} onChange={set('extraIncome')} data-testid="fr-extra-income" /><AmountWords value={s.extraIncome} /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Outros investimentos (R$)<NumInput className="input num" inputMode="decimal" value={s.extraCapital} onChange={set('extraCapital')} data-testid="fr-extra-capital" /><AmountWords value={s.extraCapital} /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Quanto invisto por mês (R$)<NumInput className="input num" inputMode="decimal" value={s.contribution} onChange={set('contribution')} data-testid="fr-contribution" /><AmountWords value={s.contribution} /></label>
+            <label className="flex flex-col gap-1 text-xs text-mist-400">Rentabilidade acima da inflação (% ao ano)<NumInput className="input num" inputMode="decimal" placeholder={ipcaPlus ? String((ipcaPlus.rate * 100).toFixed(2)).replace('.', ',') : '6'} value={s.rate} onChange={set('rate')} data-testid="fr-rate" /></label>
           </div>
           <div className="flex flex-wrap gap-1.5 text-[11px]">
             {ipcaPlus && <button type="button" className="rounded-full px-2.5 py-1 ring-1 ring-gold-500/40 text-gold-300" onClick={() => setS((x) => ({ ...x, rate: '' }))}>Tesouro IPCA+ hoje: {fmtPct(ipcaPlus.rate, 2)}</button>}
@@ -109,7 +117,7 @@ export function FreedomPage() {
           <div className="rounded-lg bg-ink-850 p-3"><p className="text-[11px] text-mist-500">Para pagar todas as contas, faltam</p><p className="num text-lg font-semibold">{fullCapital === null ? '—' : brl(fullCapital)}</p><p className="text-[11px] text-mist-500">investidos além dos {brl(capital)} que você já tem</p></div>
           <div className="rounded-lg bg-ink-850 p-3"><p className="text-[11px] text-mist-500">Investindo {brl(contribution)}/mês, você chega</p><p className="text-lg font-semibold text-gold-300" data-testid="fr-when">{when(fullMonths)}</p></div>
           <div className="rounded-lg bg-ink-850 p-3">
-            <p className="flex items-center gap-1 text-[11px] text-mist-500">Para chegar em <input className="input num w-12 !px-1 !py-0 text-center" inputMode="numeric" value={s.years} onChange={set('years')} aria-label="Anos" data-testid="fr-years" /> anos</p>
+            <p className="flex items-center gap-1 text-[11px] text-mist-500">Para chegar em <NumInput className="input num w-12 !px-1 !py-0 text-center" inputMode="numeric" value={s.years} onChange={set('years')} aria-label="Anos" data-testid="fr-years" /> anos</p>
             <p className="num text-lg font-semibold">{needed === null ? '—' : `${brl(needed)}/mês`}</p><p className="text-[11px] text-mist-500">de aporte</p>
           </div>
         </div>

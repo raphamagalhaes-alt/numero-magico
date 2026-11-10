@@ -5,6 +5,7 @@ import { dec, monteCarlo, type SimulationResult } from '../../engine';
 import { fmtBRL, fmtCompactBRL, fmtPct } from '../format';
 import { parseBR } from '../form';
 import { InfoTip } from './InfoTip';
+import { NumInput } from './NumInput';
 
 export function MonteCarloPanel({ result, histVol }: { result: SimulationResult; histVol: number | null }) {
   const [volP, setVolP] = useState(histVol ? (histVol * 100).toFixed(1).replace('.', ',') : '15');
@@ -28,10 +29,10 @@ export function MonteCarloPanel({ result, histVol }: { result: SimulationResult;
       <h2 id="mc-title" className="flex items-center gap-2 text-lg font-semibold"><Dices size={18} className="text-gold-400" aria-hidden />Faixas de resultado (Monte Carlo)
         <InfoTip text="500 trajetórias hipotéticas: o preço oscila mês a mês com a volatilidade informada e o dividendo varia ano a ano. A faixa mostra do 10º ao 90º percentil do patrimônio nominal. Volatilidade padrão = histórica de 12 meses do ativo (B3). Não é previsão." /></h2>
       <div className="card grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
-        <label className="flex flex-col gap-1 text-xs text-mist-400">Volatilidade do preço (% a.a.){histVol ? <span className="text-[11px] text-mist-500">histórica 12m: {fmtPct(histVol, 1)}</span> : null}<input className="input num" value={volP} onChange={(e) => setVolP(e.target.value)} /></label>
-        <label className="flex flex-col gap-1 text-xs text-mist-400">Tendência do preço (% a.a.)<input className="input num" value={driftP} onChange={(e) => setDriftP(e.target.value)} /></label>
-        <label className="flex flex-col gap-1 text-xs text-mist-400">Volatilidade do dividendo (% a.a.)<input className="input num" value={volD} onChange={(e) => setVolD(e.target.value)} /></label>
-        <label className="flex flex-col gap-1 text-xs text-mist-400">Tendência do dividendo (% a.a.)<input className="input num" value={driftD} onChange={(e) => setDriftD(e.target.value)} /></label>
+        <label className="flex flex-col gap-1 text-xs text-mist-400">Volatilidade do preço (% a.a.){histVol ? <span className="text-[11px] text-mist-500">histórica 12m: {fmtPct(histVol, 1)}</span> : null}<NumInput className="input num" value={volP} onChange={(e) => setVolP(e.target.value)} /></label>
+        <label className="flex flex-col gap-1 text-xs text-mist-400">Tendência do preço (% a.a.)<NumInput className="input num" value={driftP} onChange={(e) => setDriftP(e.target.value)} /></label>
+        <label className="flex flex-col gap-1 text-xs text-mist-400">Volatilidade do dividendo (% a.a.)<NumInput className="input num" value={volD} onChange={(e) => setVolD(e.target.value)} /></label>
+        <label className="flex flex-col gap-1 text-xs text-mist-400">Tendência do dividendo (% a.a.)<NumInput className="input num" value={driftD} onChange={(e) => setDriftD(e.target.value)} /></label>
       </div>
       <div className="grid gap-3 md:grid-cols-4">
         <div className="card p-4"><div className="label">Pessimista (P10)</div><div className="num text-lg font-semibold">{fmtBRL(mc.finalEquity.p10.toFixed(2))}</div></div>
