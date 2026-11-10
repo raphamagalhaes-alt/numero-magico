@@ -57,7 +57,7 @@ export function KidsPage() {
               </div>
               <div className="flex gap-1">
                 <button type="button" className="btn !px-2 !py-1 text-xs" onClick={() => setKidView(kidView === i ? null : i)} data-testid="kid-show">{kidView === i ? 'Voltar' : 'Mostrar para a criança'}</button>
-                <button type="button" className="btn !px-1.5 !py-1" aria-label={`Editar ${k.name}`} onClick={() => { setEditIdx(i); setForm({ name: k.name, birth: k.birth, goal: k.goal, target: String(k.target), atAge: String(k.atAge), monthly: String(k.monthly).replace('.', ','), have: String(k.have).replace('.', ',') }); }}><Pencil size={12} aria-hidden /></button>
+                <button type="button" className="btn !px-1.5 !py-1" aria-label={`Editar ${k.name}`} onClick={() => { setEditIdx(i); setForm({ name: k.name, birth: k.birth, goal: k.goal, target: String(k.target).replace('.', ','), atAge: String(k.atAge), monthly: String(k.monthly).replace('.', ','), have: String(k.have).replace('.', ',') }); }}><Pencil size={12} aria-hidden /></button>
                 <button type="button" className="btn !px-1.5 !py-1" aria-label={`Remover ${k.name}`} onClick={() => window.confirm(`Remover a meta de ${k.name}?`) && setKids((l) => l.filter((_, x) => x !== i))}><Trash2 size={12} aria-hidden /></button>
               </div>
             </div>

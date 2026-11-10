@@ -19,7 +19,11 @@ export function MonteCarloPanel({ result, histVol }: { result: SimulationResult;
     price: Number(i.price), dividend: Number(i.dividend), initialShares: result.summary.initialShares, months: i.months,
     monthlyContribution: Number(i.monthlyContribution), contributionStartMonth: i.contributionStartMonth, inflationAnnual: Number(i.inflationAnnual),
     priceDriftAnnual: n(params.driftP, 0), priceVolAnnual: Math.max(0, n(params.volP, 0.15)), dividendDriftAnnual: n(params.driftD, 0), dividendVolAnnual: Math.max(0, n(params.volD, 0.1)),
-    incomeGoal: Number(i.incomeGoal), paths: 500,
+    incomeGoal: Number(i.incomeGoal), incomeGoalBasis: i.incomeGoalBasis, paths: 500,
+    contributionAdjustAnnual: i.contributionAdjustAnnual, dividendInitialChange: Number(i.dividendInitialChange),
+    reinvestRatio: Number(i.reinvestRatio), dividendTaxRate: Number(i.dividendTaxRate ?? 0),
+    tradingCostPct: Number(i.tradingCostPct ?? 0), tradingCostFixed: Number(i.tradingCostFixed ?? 0),
+    cashYieldAnnual: Number(i.cashYieldAnnual ?? 0), maxCostPct: i.maxCostPct == null ? null : Number(i.maxCostPct),
   }), [i, result.summary.initialShares, params]);
   const data = mc.equity.map((e) => ({ year: e.year, faixa: [e.p10, e.p90] as [number, number], p50: e.p50 }));
   const det = result.summary.finalEquity.toNumber();
@@ -38,7 +42,7 @@ export function MonteCarloPanel({ result, histVol }: { result: SimulationResult;
         <div className="card p-4"><div className="label">Pessimista (P10)</div><div className="num text-lg font-semibold">{fmtBRL(mc.finalEquity.p10.toFixed(2))}</div></div>
         <div className="card p-4"><div className="label">Mediana (P50)</div><div className="num text-lg font-semibold text-gold-300">{fmtBRL(mc.finalEquity.p50.toFixed(2))}</div></div>
         <div className="card p-4"><div className="label">Otimista (P90)</div><div className="num text-lg font-semibold">{fmtBRL(mc.finalEquity.p90.toFixed(2))}</div></div>
-        <div className="card p-4"><div className="label">Chance de atingir a meta</div><div className="num text-lg font-semibold" data-testid="mc-prob">{fmtPct(dec(mc.goalProbability), 0)}</div><div className="text-[11px] text-mist-500">renda nominal ≥ {fmtBRL(i.incomeGoal)} em algum mês</div></div>
+        <div className="card p-4"><div className="label">Chance de atingir a meta</div><div className="num text-lg font-semibold" data-testid="mc-prob">{fmtPct(dec(mc.goalProbability), 0)}</div><div className="text-[11px] text-mist-500">renda líquida {i.incomeGoalBasis === 'real' ? 'real (hoje)' : 'nominal'} ≥ {fmtBRL(i.incomeGoal)} em algum mês</div></div>
       </div>
       <figure className="card p-4" role="group" aria-label="Faixa do patrimônio entre os percentis 10 e 90 e mediana por ano; valores-chave nos cartões acima.">
         <figcaption className="mb-2 text-sm font-medium">Patrimônio nominal por ano — faixa P10–P90 e mediana</figcaption>
@@ -53,7 +57,7 @@ export function MonteCarloPanel({ result, histVol }: { result: SimulationResult;
             <Line dataKey="p50" stroke="#b08a2e" strokeWidth={2} dot={false} isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer></div>
-        <p className="mt-2 text-[11px] text-mist-500">Caminho determinístico (preço e dividendo constantes): {fmtBRL(det.toFixed(2))}. Estimativa estatística em ponto flutuante; a tabela de 360 meses continua sendo o cálculo exato.</p>
+        <p className="mt-2 text-[11px] text-mist-500">Caminho determinístico da simulação: {fmtBRL(det.toFixed(2))}. Mesmos aportes, reinvestimento, IR sobre rendimentos e custos de compra. Patrimônio antes de impostos e custos de venda; retiradas ficam fora do patrimônio. Tendências e volatilidades são as informadas neste painel. Estimativa estatística em ponto flutuante; a tabela de 360 meses continua sendo o cálculo exato.</p>
       </figure>
     </section>
   );

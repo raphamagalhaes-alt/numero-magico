@@ -190,19 +190,41 @@ export function simulate(input: SimulationInput): SimulationResult {
  * −aportes, +dividendos retirados e +patrimônio total no último mês. Usa float: apenas indicador exibido.
  */
 export function annualIrr(initial: Dec, rows: MonthRow[], inflation: Dec): { irrAnnual: number | null; irrAnnualReal: number | null } {
+  const unavailable = { irrAnnual: null, irrAnnualReal: null };
+  if (!rows.length || !initial.isPositive()) return unavailable;
   const flows = [-initial.toNumber(), ...rows.map((r) => r.withdrawn.toNumber() - r.contribution.toNumber())];
   flows[flows.length - 1] += rows[rows.length - 1].totalEquity.toNumber();
-  const npv = (r: number) => flows.reduce((acc, f, i) => acc + f / Math.pow(1 + r, i), 0);
-  if (!(flows[0] < 0) || !rows.length) return { irrAnnual: null, irrAnnualReal: null };
+  if (!flows.every(Number.isFinite)) return unavailable;
+  const scale = Math.max(...flows.map(Math.abs));
+  const normalized = flows.map((f) => f / scale);
+  // For negative rates evaluate NPV × (1+r)^n, using Horner's method.
+  // For positive rates discount backwards. Both keep factors <= 1 and avoid 0/0,
+  // overflow and products of huge NPVs over long horizons.
+  const npv = (r: number) => {
+    let value = 0;
+    if (r < 0) for (const f of normalized) value = value * (1 + r) + f;
+    else for (let k = normalized.length - 1; k >= 0; k--) value = value / (1 + r) + normalized[k];
+    return value;
+  };
   let lo = -0.99, hi = 1;
-  if (npv(lo) * npv(hi) > 0) return { irrAnnual: null, irrAnnualReal: null };
-  for (let i = 0; i < 200; i++) {
-    const mid = (lo + hi) / 2;
-    if (npv(lo) * npv(mid) <= 0) hi = mid; else lo = mid;
+  let low = npv(lo);
+  const high = npv(hi);
+  if (!Number.isFinite(low) || !Number.isFinite(high) || (low !== 0 && high !== 0 && Math.sign(low) === Math.sign(high))) return unavailable;
+  let monthly = npv(0) === 0 ? 0 : low === 0 ? lo : high === 0 ? hi : null;
+  if (monthly === null) {
+    for (let i = 0; i < 200; i++) {
+      const mid = (lo + hi) / 2;
+      const value = npv(mid);
+      if (!Number.isFinite(value)) return unavailable;
+      if (value === 0) { lo = mid; hi = mid; break; }
+      if (Math.sign(low) !== Math.sign(value)) hi = mid;
+      else { lo = mid; low = value; }
+    }
+    monthly = (lo + hi) / 2;
   }
-  const monthly = (lo + hi) / 2;
   const annual = Math.pow(1 + monthly, 12) - 1;
   const real = (1 + annual) / (1 + inflation.toNumber()) - 1;
+  if (!Number.isFinite(annual) || !Number.isFinite(real)) return unavailable;
   return { irrAnnual: annual, irrAnnualReal: real };
 }
 

@@ -20,7 +20,13 @@ const DEFAULT: PaydayState = {
   raise: { on: true, step: 1, everyMonths: 6, max: 20, start: todayISO() },
   reserveMonths: '6', reserveHave: '0', reserveShare: 1, history: [], lastSalary: '',
 };
-export const loadPayday = (): PaydayState => ({ ...DEFAULT, ...loadRaw<Partial<PaydayState>>(PAYDAY_KEY, {}) });
+export const loadPayday = (): PaydayState => {
+  const state = { ...DEFAULT, ...loadRaw<Partial<PaydayState>>(PAYDAY_KEY, {}) };
+  // Older versions saved calculated cents with a decimal point. A single point followed by
+  // one or two digits cannot be a valid Brazilian thousands group. Preserve grouped input.
+  if (/^\d+\.\d{1,2}$/.test(state.reserveHave)) state.reserveHave = state.reserveHave.replace('.', ',');
+  return state;
+};
 const br = (iso: string) => iso.split('-').reverse().join('/');
 const brl = (v: number) => fmtBRL(v.toFixed(2));
 const weekday = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('pt-BR', { weekday: 'long', timeZone: 'UTC' });
@@ -57,7 +63,7 @@ export function MonthPage() {
   const holdings = positions.map((p) => ({ p, a: assets.find((x) => x.ticker === p.ticker) })).filter((r) => r.a && r.a.close > 0)
     .map(({ p, a }) => ({ ticker: p.ticker, shares: p.shares, price: a!.close, target: Math.max(0, num(targets[p.ticker] ?? '1')) }));
   const buys = planContribution(holdings, split.toInvest);
-  const gain = split.toInvest > 0 ? freedomDelayDays({ capital: plan.capital, contribution: plan.contribution, target: plan.target, rate: plan.rate }, { oneOff: -split.toInvest }) : null;
+  const gain = split.toInvest > 0 ? freedomDelayDays(plan.projection, { oneOff: -split.toInvest }) : null;
   const st = streak(s.history.map((h) => h.ym), ym);
   const months = s.history.length;
   const since = s.history.length ? s.history.map((h) => h.ym).sort()[0] : null;
@@ -66,7 +72,7 @@ export function MonthPage() {
 
   const markDone = () => {
     const entry: Done = { ym, date: today, save: split.save, toReserve: split.toReserve, toInvest: split.toInvest };
-    setS((x) => ({ ...x, history: [...x.history.filter((h) => h.ym !== ym), entry], reserveHave: String(Math.round((num(x.reserveHave) + split.toReserve) * 100) / 100) }));
+    setS((x) => ({ ...x, history: [...x.history.filter((h) => h.ym !== ym), entry], reserveHave: (Math.round((num(x.reserveHave) + split.toReserve) * 100) / 100).toFixed(2).replace('.', ',') }));
     if (toCarteira && buys.buys.length) {
       const map = new Map<string, Position>(positions.map((p) => [p.ticker, { ...p }]));
       for (const b of buys.buys) map.get(b.ticker)!.shares += b.shares;

@@ -48,19 +48,21 @@ export function StormPage() {
 
       {storm.active ? (
         <div className="card p-5 ring-loss-500/40" data-testid="st-active">
-          <p className="text-lg font-semibold text-loss-400">A bolsa está em queda forte</p>
+          <p className="text-lg font-semibold text-loss-400">Queda forte na última cotação disponível</p>
           <p className="text-sm text-mist-300">
-            {storm.dayPct !== null && storm.dayPct <= -0.02 && <>Ibovespa {fmtPct(storm.dayPct, 1)} hoje. </>}
+            {storm.dayPct !== null && storm.dayPct <= -0.02 && <>Ibovespa {fmtPct(storm.dayPct, 1)} na variação informada. </>}
             {storm.drawdown !== null && storm.drawdown <= -0.1 && <>{fmtPct(-storm.drawdown, 1)} abaixo do ponto mais alto dos últimos 3 meses.</>}
           </p>
           <p className="mt-2 text-sm text-mist-200"><b>Respire. Nenhuma decisão precisa ser tomada hoje.</b></p>
         </div>
       ) : (
         <div className="card p-5" data-testid="st-calm">
-          <p className="text-base font-semibold text-gold-300">Hoje o mar está calmo</p>
-          <p className="text-sm text-mist-400">{storm.hasData ? <>Ibovespa {storm.dayPct !== null ? `${storm.dayPct >= 0 ? '+' : ''}${fmtPct(storm.dayPct, 1)} hoje` : ''}{storm.drawdown !== null ? ` · ${fmtPct(-storm.drawdown, 1)} abaixo do pico de 3 meses` : ''}.</> : <>Ative as cotações em <button type="button" className="underline" onClick={() => go('mercados')}>Mercados</button> para o app avisar sozinho quando a bolsa cair forte.</>} O melhor momento para se preparar para a tempestade é agora.</p>
+          <p className="text-base font-semibold text-gold-300">{storm.hasData ? 'Sem sinal de queda forte nos dados disponíveis' : 'Sem dados recentes para avaliar o mercado'}</p>
+          <p className="text-sm text-mist-400">{storm.hasData ? <>Ibovespa {storm.dayPct !== null ? `${storm.dayPct >= 0 ? '+' : ''}${fmtPct(storm.dayPct, 1)} na variação informada` : ''}{storm.drawdown !== null ? ` · ${fmtPct(-storm.drawdown, 1)} abaixo do pico de 3 meses` : ''}.</> : <>Ative as cotações em <button type="button" className="underline" onClick={() => go('mercados')}>Mercados</button> para o app avisar sozinho quando a bolsa cair forte.</>} O melhor momento para se preparar para a tempestade é agora.</p>
         </div>
       )}
+
+      {storm.referenceLabel && <p className="text-xs text-mist-500" data-testid="st-reference">{storm.referenceKind}: {storm.referenceLabel} (Brasília).{!storm.hasData ? ' Dados antigos; atualize em Mercados antes de avaliar a situação.' : ' A variação se refere a esse registro, não necessariamente ao pregão de hoje.'}</p>}
 
       <div className="card flex flex-col gap-2 p-4 ring-gold-500/30" data-testid="st-rule">
         <h2 className="flex items-center gap-2 text-base font-semibold"><Anchor size={16} className="text-gold-400" aria-hidden />Minha promessa para as quedas</h2>
@@ -77,7 +79,7 @@ export function StormPage() {
           <ul className="flex flex-col gap-2 text-sm text-mist-300">
             <li>{cover !== null ? <>Sua reserva de emergência cobre <b className="text-mist-100">{cover.toLocaleString('pt-BR')} meses</b> das suas contas. {cover >= 6 ? 'Você não precisa vender nada para pagar as contas.' : 'Enquanto ela não estiver completa, evite depender de vender ações.'}</> : <>Configure sua reserva em <button type="button" className="underline" onClick={() => go('mes')}>Meu mês</button>.</>}</li>
             {plan.pf.income > 0 && <li>Seus investimentos estimam pagar <b className="text-mist-100">{brl(plan.pf.income)} por mês</b> em rendimentos. Rendimentos costumam oscilar bem menos que o preço das cotas.</li>}
-            {value > 0 && <li>Uma queda de 30% deixaria sua carteira de {brl(value)} em <b className="text-mist-100">{brl(value * (1 - practice))}</b> no papel — só vira perda de verdade se você vender.</li>}
+            {value > 0 && <li>Uma queda de 30% deixaria sua carteira de {brl(value)} em <b className="text-mist-100">{brl(value * (1 - practice))}</b> em valor de mercado. A perda ainda não realizada pode persistir; uma recuperação não é garantida.</li>}
             {monthlyMoney > 0 && fallen.length > 0 && fallen.slice(0, 3).map((h) => { const x = extraShares(monthlyMoney, h.price!, h.peak!); return x.extra > 0 ? <li key={h.ticker}>Com {h.ticker} {fmtPct(-h.fall!, 0)} abaixo do pico, seus {brl(monthlyMoney)} do mês compram <b className="text-gain-400">{x.extra} cota{x.extra > 1 ? 's' : ''} a mais</b> ({x.now} em vez de {x.before}).</li> : null; })}
           </ul>
         </div>
